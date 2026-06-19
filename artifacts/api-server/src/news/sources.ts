@@ -1,16 +1,10 @@
 export interface NewsSource {
   name: string;
   url: string;
-  type: "ru" | "int" | "site";
+  type: "ru" | "int";
 }
 
 export const NEWS_SOURCES: NewsSource[] = [
-  // ── Сайт ЗАВЯЗЬ ───────────────────────────────────────────────────────────
-  {
-    name: "ЗАВЯЗЬ",
-    url: "https://zavyaz-site.pages.dev/",  // Cloudflare Pages
-    type: "site",
-  },
   // ── Российские источники ──────────────────────────────────────────────────
   {
     name: "ELLE Россия",
