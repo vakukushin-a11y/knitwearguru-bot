@@ -127,7 +127,7 @@ async function maxBot() {
 
   async function mxSend(userId, text, keyboard) {
     const body = { user_id: userId, text };
-    if (keyboard) body.inline_keyboard = keyboard;
+    if (keyboard) body.attachments = [keyboard];
     await fetch(`${API}/messages`, { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
   }
 
