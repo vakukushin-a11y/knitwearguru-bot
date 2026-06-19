@@ -42,6 +42,22 @@ const ENCYCLOPEDIA = {
   "плед": "Плед — вязаное полотно для уюта. Украшает интерьер, согревает. Шерсть, акрил, мохер. Из Шотландии (plaid — одеяло), в интерьерах с XIX века.",
 };
 
+// ── Products & Prices ────────────────────────────────────────────────────
+const PRODUCTS = [
+  { name: "Кардиганы", price: "от 6 500 ₽" },
+  { name: "Платья", price: "от 6 500 ₽" },
+  { name: "Джемперы", price: "от 6 000 ₽" },
+  { name: "Свитеры", price: "от 6 000 ₽" },
+  { name: "Туники", price: "от 6 000 ₽" },
+  { name: "Палантины", price: "от 3 000 ₽" },
+  { name: "Пледы", price: "от 2 500 ₽" },
+  { name: "Косынки", price: "от 2 500 ₽" },
+  { name: "Шарфы и шапки", price: "от 1 200 ₽" },
+  { name: "Снуды", price: "от 1 200 ₽" },
+];
+
+app.get("/api/products", (_, res) => res.json(PRODUCTS));
+
 // ── Health & API routes ───────────────────────────────────────────────────
 app.get("/", (_, res) => res.send("ZAVYAZ Bots OK"));
 app.get("/api/health", (_, res) => res.json({ status: "ok" }));
@@ -105,7 +121,7 @@ async function telegramBot() {
           await fetch(`${API}/answerCallbackQuery?callback_query_id=${cb.id}`);
           if (cb.data === "news") { encSessions.delete(cid); const t = NEWS.map(n => `📅 ${n.date} · ${n.source}\n<b>${n.title}</b>\n${n.text}`).join("\n\n"); await tgSend(cid, `📰 <b>Новости</b>\n\n${t}`, menu()); }
           else if (cb.data === "contact") { encSessions.delete(cid); await tgSend(cid, `${DESIGNER} — дизайнер ателье «ЗАВЯЗЬ»\n\n📞 ${PHONE}`, menu()); }
-          else if (cb.data === "order") { encSessions.delete(cid); await tgSend(cid, `Для заказа позвоните:\n📞 ${PHONE}\n\nРасскажите об изделии, цвете, размере — всё обсудим!`, menu()); }
+          else if (cb.data === "order") { encSessions.delete(cid); const list = PRODUCTS.map(p => `• ${p.name} — ${p.price}`).join("\n"); await tgSend(cid, `📋 <b>Изделия на заказ</b>\n\n${list}\n\nДля оформления заказа позвоните дизайнеру:\n📞 ${PHONE}`, menu()); }
           else if (cb.data === "menu") { encSessions.delete(cid); await tgSend(cid, "Главное меню:", menu()); }
           else if (cb.data === "encyclopedia") { encSessions.add(cid); await tgSend(cid, encIntro(), encMenu()); }
         } else if (u.message?.text) {
@@ -154,7 +170,7 @@ async function maxBot() {
           const uid = u.callback.user.user_id; const p = u.callback.payload || u.callback.data || "";
           if (p === "news") { encSessions.delete(uid); const t = NEWS.map(n => `📅 ${n.date} · ${n.source}\n${n.title}\n${n.text}`).join("\n\n"); await mxSend(uid, `📰 Новости\n\n${t}`, menu()); }
           else if (p === "contact") { encSessions.delete(uid); await mxSend(uid, `${DESIGNER} — дизайнер ателье «ЗАВЯЗЬ»\n\n📞 ${PHONE}`, menu()); }
-          else if (p === "order") { encSessions.delete(uid); await mxSend(uid, `Для заказа позвоните:\n📞 ${PHONE}\n\nРасскажите об изделии — всё подберём!`, menu()); }
+          else if (p === "order") { encSessions.delete(uid); const list = PRODUCTS.map(p => `• ${p.name} — ${p.price}`).join("\n"); await mxSend(uid, `📋 <b>Изделия на заказ</b>\n\n${list}\n\nДля оформления заказа позвоните дизайнеру:\n📞 ${PHONE}`, menu()); }
           else if (p === "menu") { encSessions.delete(uid); await mxSend(uid, "Главное меню:", menu()); }
           else if (p === "encyclopedia") { encSessions.add(uid); await mxSend(uid, encIntro(), encMenu()); }
         }
