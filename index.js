@@ -169,7 +169,7 @@ async function maxBot() {
       if (!data.updates) { console.log("MAX poll: no updates field, response:", JSON.stringify(data).slice(0, 200)); }
       if (data.marker) marker = data.marker;
       for (const u of data.updates || []) {
-        console.log("MAX update:", u.update_type, JSON.stringify(u).slice(0, 300));
+        if (u.update_type === "message_callback") { console.log("MAX callback FULL:", JSON.stringify(u.callback)); }
         if (u.update_type === "bot_started" && u.user) {
           await mxSend(u.user.user_id, "Добро пожаловать в ателье «ЗАВЯЗЬ»! 🧶\n\nЯ помогу с выбором трикотажа, расскажу о пряже. Что интересует?", menu());
         } else if (u.update_type === "message_created" && u.message?.body?.text) {
