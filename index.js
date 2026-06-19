@@ -49,16 +49,16 @@ app.use("/img", express.static(__dirname + "/img"));
 
 // ── Products & Prices ────────────────────────────────────────────────────
 const PRODUCTS = [
-  { name: "Кардиганы", price: "от 6 500 ₽", img: "kb-img-4.png" },
-  { name: "Платья", price: "от 6 500 ₽", img: "kb-img-5.png" },
-  { name: "Джемперы", price: "от 6 000 ₽", img: "kb-img-6.png" },
-  { name: "Свитеры", price: "от 6 000 ₽", img: "kb-img-7.png" },
-  { name: "Туники", price: "от 6 000 ₽", img: "kb-img-10.png" },
+  { name: "Кардиганы", price: "от 6 500 ₽", img: "bot-кардиган.png" },
+  { name: "Платья", price: "от 6 500 ₽", img: "bot-платье.jpg" },
+  { name: "Джемперы", price: "от 6 000 ₽", img: "bot-джемпер.png" },
+  { name: "Свитеры", price: "от 6 000 ₽", img: "bot-свитер.png" },
+  { name: "Снуды", price: "от 1 200 ₽", img: "bot-снуд.png" },
+  { name: "Шарфы и шапки", price: "от 1 200 ₽", img: "bot-шарфы.png" },
   { name: "Палантины", price: "от 3 000 ₽", img: "kb-img-12.jpg" },
   { name: "Пледы", price: "от 2 500 ₽", img: "kb-img-14.png" },
   { name: "Косынки", price: "от 2 500 ₽", img: "kb-img-15.png" },
-  { name: "Шарфы и шапки", price: "от 1 200 ₽", img: "kb-img-8.jpg" },
-  { name: "Снуды", price: "от 1 200 ₽", img: "kb-img-9.jpg" },
+  { name: "Туники", price: "от 6 000 ₽", img: "kb-img-10.png" },
 ];
 
 app.get("/api/products", (_, res) => res.json(PRODUCTS));
@@ -202,7 +202,7 @@ async function maxBot() {
           if (p === "news") { encSessions.delete(uid); const t = NEWS.map(n => `📅 ${n.date} · ${n.source}\n${n.title}\n${n.text}`).join("\n\n"); await mxSend(uid, `📰 Новости\n\n${t}`, menu()); }
           else if (p === "contact") { encSessions.delete(uid); await mxSend(uid, `${DESIGNER} — дизайнер ателье «ЗАВЯЗЬ»\n\n📞 ${PHONE}`, menu()); }
           else if (p === "order") { encSessions.delete(uid); await mxSend(uid, "Выберите изделие 👇", catMenu()); }
-          else if (p.startsWith("cat:")) { const name = p.slice(4); const prod = PRODUCTS.find(x => x.name === name); if (prod) { await mxSend(uid, `${prod.name}\n${prod.price}\n\n📞 Для заказа: ${PHONE}`); const cdnUrl = "https://cdn.jsdelivr.net/gh/vakukushin-a11y/zavyaz-site@main/" + prod.img; await mxSendPhoto(uid, cdnUrl); await mxSend(uid, "Что ещё интересует?", menu()); } }
+          else if (p.startsWith("cat:")) { const name = p.slice(4); const prod = PRODUCTS.find(x => x.name === name); if (prod) { await mxSend(uid, `${prod.name}\n${prod.price}\n\n📞 Для заказа: ${PHONE}`); const cdnUrl = "https://cdn.jsdelivr.net/gh/vakukushin-a11y/zavyaz-site@main/" + encodeURIComponent(prod.img); await mxSendPhoto(uid, cdnUrl); await mxSend(uid, "Что ещё интересует?", menu()); } }
           else if (p === "menu" || p === "menu:main") { encSessions.delete(uid); await mxSend(uid, "Главное меню:", menu()); }
           else if (p === "encyclopedia") { encSessions.add(uid); await mxSend(uid, encIntro(), encMenu()); }
         }
