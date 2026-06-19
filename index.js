@@ -55,10 +55,10 @@ const PRODUCTS = [
   { name: "Свитеры", price: "от 6 000 ₽", img: "bot-свитер.png" },
   { name: "Снуды", price: "от 1 200 ₽", img: "bot-снуд.png" },
   { name: "Шарфы и шапки", price: "от 1 200 ₽", img: "bot-шарфы.png" },
-  { name: "Палантины", price: "от 3 000 ₽", img: "kb-img-12.jpg" },
   { name: "Пледы", price: "от 2 500 ₽", img: "kb-img-14.png" },
-  { name: "Косынки", price: "от 2 500 ₽", img: "kb-img-15.png" },
+  { name: "Палантины", price: "от 3 000 ₽", img: "kb-img-12.jpg" },
   { name: "Туники", price: "от 6 000 ₽", img: "kb-img-10.png" },
+  { name: "Косынки", price: "от 2 500 ₽", img: "kb-img-15.png" },
 ];
 
 app.get("/api/products", (_, res) => res.json(PRODUCTS));
