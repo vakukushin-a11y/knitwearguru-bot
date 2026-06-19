@@ -152,13 +152,21 @@ async function maxBot() {
   function encMenu() { return { type: "inline_keyboard", payload: { buttons: [[{ type: "callback", text: "↩️ Меню", payload: "menu" }, { type: "callback", text: "🧶 Спросить ещё", payload: "encyclopedia" }]] } }; }
 
   const encSessions = new Set();
-  console.log("MAX bot started");
+  // Verify connection first
+  const meResp = await fetch(`${API}/me`, { headers: { Authorization: MAX_TOKEN } }).catch(() => null);
+  if (!meResp || !meResp.ok) {
+    console.log("MAX bot: /me failed - token invalid or API unreachable");
+    return;
+  }
+  const me = await meResp.json().catch(() => null);
+  console.log("MAX bot started:", me?.username || me?.name || "OK");
   while (true) {
     try {
       const params = { timeout: 30, limit: 100 }; if (marker !== null) params.marker = marker;
       const qs = Object.entries(params).map(([k,v]) => `${k}=${v}`).join("&");
       const resp = await fetch(`${API}/updates?${qs}`, { headers: { Authorization: MAX_TOKEN } });
       const data = await resp.json();
+      if (!data.updates) { console.log("MAX poll: no updates field, response:", JSON.stringify(data).slice(0, 200)); }
       if (data.marker) marker = data.marker;
       for (const u of data.updates || []) {
         if (u.update_type === "bot_started" && u.user) {
