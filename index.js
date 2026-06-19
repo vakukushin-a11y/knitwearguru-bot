@@ -142,9 +142,10 @@ async function maxBot() {
   let marker = null;
 
   async function mxSend(userId, text, keyboard) {
-    const body = { user_id: userId, text };
+    const url = new URL(`${API}/messages`); url.searchParams.set("user_id", userId);
+    const body = { text };
     if (keyboard) body.attachments = [keyboard];
-    await fetch(`${API}/messages`, { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
+    await fetch(url.toString(), { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
   }
 
   function menu() { return { type: "inline_keyboard", payload: { buttons: [[{ type: "callback", text: "📋 Заказать", payload: "order" }, { type: "callback", text: "🧶 Энциклопедия", payload: "encyclopedia" }], [{ type: "callback", text: "📰 Новости", payload: "news" }, { type: "callback", text: "📞 Позвонить", payload: "contact" }]] } }; }
