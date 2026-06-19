@@ -2,12 +2,15 @@ const express = require("express");
 const OpenAI = require("openai");
 const app = express();
 app.use(express.json());
+app.use("/img", express.static(__dirname + "/img"));
 
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.OPENAI_BASE_URL || "https://routerai.ru/api/v1";
 const API_KEY = process.env.OPENAI_API_KEY || "";
 const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const MAX_TOKEN = process.env.MAX_BOT_TOKEN || "";
+const HOST = process.env.HOST || `http://localhost:${PORT}`;
+const fs = require("fs");
 
 const openai = new OpenAI({ baseURL: BASE_URL, apiKey: API_KEY });
 const DESIGNER = "Ирина Кукушина";
@@ -42,18 +45,20 @@ const ENCYCLOPEDIA = {
   "плед": "Плед — вязаное полотно для уюта. Украшает интерьер, согревает. Шерсть, акрил, мохер. Из Шотландии (plaid — одеяло), в интерьерах с XIX века.",
 };
 
+app.use("/img", express.static(__dirname + "/img"));
+
 // ── Products & Prices ────────────────────────────────────────────────────
 const PRODUCTS = [
-  { name: "Кардиганы", price: "от 6 500 ₽" },
-  { name: "Платья", price: "от 6 500 ₽" },
-  { name: "Джемперы", price: "от 6 000 ₽" },
-  { name: "Свитеры", price: "от 6 000 ₽" },
-  { name: "Туники", price: "от 6 000 ₽" },
-  { name: "Палантины", price: "от 3 000 ₽" },
-  { name: "Пледы", price: "от 2 500 ₽" },
-  { name: "Косынки", price: "от 2 500 ₽" },
-  { name: "Шарфы и шапки", price: "от 1 200 ₽" },
-  { name: "Снуды", price: "от 1 200 ₽" },
+  { name: "Кардиганы", price: "от 6 500 ₽", img: "kb-img-4.png" },
+  { name: "Платья", price: "от 6 500 ₽", img: "kb-img-5.png" },
+  { name: "Джемперы", price: "от 6 000 ₽", img: "kb-img-6.png" },
+  { name: "Свитеры", price: "от 6 000 ₽", img: "kb-img-7.png" },
+  { name: "Туники", price: "от 6 000 ₽", img: "kb-img-10.png" },
+  { name: "Палантины", price: "от 3 000 ₽", img: "kb-img-12.jpg" },
+  { name: "Пледы", price: "от 2 500 ₽", img: "kb-img-14.png" },
+  { name: "Косынки", price: "от 2 500 ₽", img: "kb-img-15.png" },
+  { name: "Шарфы и шапки", price: "от 1 200 ₽", img: "kb-img-8.jpg" },
+  { name: "Снуды", price: "от 1 200 ₽", img: "kb-img-9.jpg" },
 ];
 
 app.get("/api/products", (_, res) => res.json(PRODUCTS));
@@ -105,6 +110,15 @@ async function telegramBot() {
 
   function menu() { return [[{ text: "📋 Заказать", callback_data: "order" }, { text: "🧶 Энциклопедия", callback_data: "encyclopedia" }], [{ text: "📰 Новости", callback_data: "news" }, { text: "📞 Позвонить", callback_data: "contact" }]]; }
   function encMenu() { return [[{ text: "↩️ Меню", callback_data: "menu" }, { text: "🧶 Спросить ещё", callback_data: "encyclopedia" }]]; }
+  function catMenu() { const rows = []; for (let i = 0; i < PRODUCTS.length; i += 2) rows.push(PRODUCTS.slice(i, i + 2).map(p => ({ text: p.name, callback_data: "cat:" + p.name }))); rows.push([{ text: "↩️ Меню", callback_data: "menu" }]); return rows; }
+
+  async function tgSendPhoto(chatId, filePath, caption) {
+    const form = new FormData();
+    form.append("chat_id", chatId);
+    form.append("photo", new Blob([fs.readFileSync(filePath)]), require("path").basename(filePath));
+    if (caption) form.append("caption", caption);
+    await fetch(`${API}/sendPhoto`, { method: "POST", body: form }).catch(() => {});
+  }
 
   const encSessions = new Set();
   console.log("TG bot started");
@@ -121,7 +135,8 @@ async function telegramBot() {
           await fetch(`${API}/answerCallbackQuery?callback_query_id=${cb.id}`);
           if (cb.data === "news") { encSessions.delete(cid); const t = NEWS.map(n => `📅 ${n.date} · ${n.source}\n<b>${n.title}</b>\n${n.text}`).join("\n\n"); await tgSend(cid, `📰 <b>Новости</b>\n\n${t}`, menu()); }
           else if (cb.data === "contact") { encSessions.delete(cid); await tgSend(cid, `${DESIGNER} — дизайнер ателье «ЗАВЯЗЬ»\n\n📞 ${PHONE}`, menu()); }
-          else if (cb.data === "order") { encSessions.delete(cid); const list = PRODUCTS.map(p => `• ${p.name} — ${p.price}`).join("\n"); await tgSend(cid, `📋 <b>Изделия на заказ</b>\n\n${list}\n\nДля оформления заказа позвоните дизайнеру:\n📞 ${PHONE}`, menu()); }
+          else if (cb.data === "order") { encSessions.delete(cid); await tgSend(cid, "Выберите изделие 👇", catMenu()); }
+          else if (cb.data.startsWith("cat:")) { const name = cb.data.slice(4); const p = PRODUCTS.find(x => x.name === name); if (p) { await tgSendPhoto(cid, __dirname + "/img/" + p.img, `${p.name}\n${p.price}\n\n📞 Для заказа: ${PHONE}`); await tgSend(cid, "Что ещё интересует?", menu()); } }
           else if (cb.data === "menu") { encSessions.delete(cid); await tgSend(cid, "Главное меню:", menu()); }
           else if (cb.data === "encyclopedia") { encSessions.add(cid); await tgSend(cid, encIntro(), encMenu()); }
         } else if (u.message?.text) {
@@ -148,10 +163,16 @@ async function maxBot() {
     await fetch(url.toString(), { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
   }
 
-  function menu() { return { type: "inline_keyboard", payload: { buttons: [[{ type: "callback", text: "📋 Заказать", payload: "order" }, { type: "callback", text: "🧶 Энциклопедия", payload: "encyclopedia" }], [{ type: "callback", text: "📰 Новости", payload: "news" }, { type: "callback", text: "📞 Позвонить", payload: "contact" }]] } }; }
+  function menu() { const rows = [[{ type: "callback", text: "📋 Заказать", payload: "order" }, { type: "callback", text: "🧶 Энциклопедия", payload: "encyclopedia" }], [{ type: "callback", text: "📰 Новости", payload: "news" }, { type: "callback", text: "📞 Позвонить", payload: "contact" }]]; return { type: "inline_keyboard", payload: { buttons: rows } }; }
   function encMenu() { return { type: "inline_keyboard", payload: { buttons: [[{ type: "callback", text: "↩️ Меню", payload: "menu" }, { type: "callback", text: "🧶 Спросить ещё", payload: "encyclopedia" }]] } }; }
+  function catMenu() { const rows = []; for (let i = 0; i < PRODUCTS.length; i += 2) rows.push(PRODUCTS.slice(i, i + 2).map(p => ({ type: "callback", text: p.name, payload: "cat:" + p.name }))); rows.push([{ type: "callback", text: "↩️ Меню", payload: "menu" }]); return { type: "inline_keyboard", payload: { buttons: rows } }; }
 
   const encSessions = new Set();
+  async function mxSendPhoto(userId, url) {
+    const u = new URL(`${API}/messages`); u.searchParams.set("user_id", userId);
+    await fetch(u.toString(), { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify({ attachments: [{ type: "image", payload: { url } }] }) }).catch(() => {});
+  }
+
   // Verify connection first
   const meResp = await fetch(`${API}/me`, { headers: { Authorization: MAX_TOKEN } }).catch(() => null);
   if (!meResp || !meResp.ok) {
@@ -180,8 +201,9 @@ async function maxBot() {
           const uid = u.callback.user.user_id; const p = u.callback.payload || u.callback.data || "";
           if (p === "news") { encSessions.delete(uid); const t = NEWS.map(n => `📅 ${n.date} · ${n.source}\n${n.title}\n${n.text}`).join("\n\n"); await mxSend(uid, `📰 Новости\n\n${t}`, menu()); }
           else if (p === "contact") { encSessions.delete(uid); await mxSend(uid, `${DESIGNER} — дизайнер ателье «ЗАВЯЗЬ»\n\n📞 ${PHONE}`, menu()); }
-          else if (p === "order") { encSessions.delete(uid); const list = PRODUCTS.map(p => `• ${p.name} — ${p.price}`).join("\n"); await mxSend(uid, `📋 <b>Изделия на заказ</b>\n\n${list}\n\nДля оформления заказа позвоните дизайнеру:\n📞 ${PHONE}`, menu()); }
-          else if (p === "menu") { encSessions.delete(uid); await mxSend(uid, "Главное меню:", menu()); }
+          else if (p === "order") { encSessions.delete(uid); await mxSend(uid, "Выберите изделие 👇", catMenu()); }
+          else if (p.startsWith("cat:")) { const name = p.slice(4); const prod = PRODUCTS.find(x => x.name === name); if (prod) { await mxSend(uid, `${prod.name}\n${prod.price}\n\n📞 Для заказа: ${PHONE}`); await mxSendPhoto(uid, HOST + "/img/" + prod.img); await mxSend(uid, "Что ещё интересует?", menu()); } }
+          else if (p === "menu" || p === "menu:main") { encSessions.delete(uid); await mxSend(uid, "Главное меню:", menu()); }
           else if (p === "encyclopedia") { encSessions.add(uid); await mxSend(uid, encIntro(), encMenu()); }
         }
       }
