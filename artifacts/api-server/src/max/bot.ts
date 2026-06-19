@@ -207,9 +207,9 @@ class MaxBot {
   // ── Send helpers ────────────────────────────────────────────────────────────
 
   private async sendMessage(userId: number, text: string, keyboard?: InlineKeyboard): Promise<void> {
-    const body: Record<string, unknown> = { text };
-    if (keyboard) body.attachments = [keyboard];
-    await this.post("/messages", { user_id: userId }, body);
+    const body: Record<string, unknown> = { user_id: userId, text };
+    if (keyboard) body.inline_keyboard = keyboard;
+    await this.post("/messages", {}, body);
   }
 
   // ── Keyboards ───────────────────────────────────────────────────────────────
@@ -644,7 +644,8 @@ class MaxBot {
     if (!cb) return;
     const user = cb.user;
     const userId = user.user_id;
-    const payload = cb.payload ?? "";
+    const payload = (cb as any).payload ?? (cb as any).data ?? "";
+    logger.info({ payload, raw: JSON.stringify(cb).slice(0, 200) }, "MAX callback");
 
     const conversationId = await this.getOrCreateConversation(userId, user);
 
