@@ -1,10 +1,16 @@
 export interface NewsSource {
   name: string;
   url: string;
-  type: "ru" | "int";
+  type: "ru" | "int" | "site";
 }
 
 export const NEWS_SOURCES: NewsSource[] = [
+  // ── Сайт ЗАВЯЗЬ ───────────────────────────────────────────────────────────
+  {
+    name: "ЗАВЯЗЬ",
+    url: "https://zavyaz-site.pages.dev/",  // Cloudflare Pages
+    type: "site",
+  },
   // ── Российские источники ──────────────────────────────────────────────────
   {
     name: "ELLE Россия",
@@ -21,12 +27,6 @@ export const NEWS_SOURCES: NewsSource[] = [
     url: "https://ru.fashionunited.com/rss",
     type: "ru",
   },
-  {
-    name: "Cosmo Россия",
-    url: "https://www.cosmo.ru/rss/all.rss",
-    type: "ru",
-  },
-
   // ── Международные источники ───────────────────────────────────────────────
   {
     name: "WWD",
