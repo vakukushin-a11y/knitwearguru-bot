@@ -173,7 +173,7 @@ async function loadIncoming() {
     document.getElementById("incomingCount").textContent = data.length + " шт.";
     if (data.length === 0) { document.getElementById("incomingList").innerHTML = '<p style="color:#999">Новых входящих нет</p>'; return; }
     document.getElementById("incomingList").innerHTML = data.map(n =>
-      '<div style="border-bottom:1px solid #e8d5b0;padding:12px 0"><strong>' + n.title + '</strong><br><span style="color:#999;font-size:0.75rem">' + n.source + ' · рейтинг ' + (n.score || '?') + '/10</span><p style="margin:6px 0;font-size:0.85rem;color:#333">' + (n.text||'') + '</p>' + (n.aiAnalysis ? '<p style="margin:6px 0;font-size:0.85rem;color:#7b4b3a;font-style:italic">🤖 Анализ: ' + n.aiAnalysis + '</p>' : '') + '<div style="display:flex;gap:6px"><button class="btn btn-sm" onclick=\'publishIncoming(' + n.id + ', ' + JSON.stringify(n.title) + ', ' + JSON.stringify(n.aiAnalysis || n.text) + ', ' + JSON.stringify(n.source||"") + ')\'>✅ Опубликовать</button><button class="btn btn-del btn-sm" onclick="deleteIncoming(' + n.id + ')">✕</button></div></div>'
+      '<div style="border-bottom:1px solid #e8d5b0;padding:12px 0"><strong>' + n.title + '</strong><br><span style="color:#999;font-size:0.75rem">' + n.source + '</span><p style="margin:6px 0;font-size:0.85rem;color:#333">' + (n.text||'') + '</p><div style="display:flex;gap:6px"><button class="btn btn-sm" onclick=\'publishIncoming(' + n.id + ', ' + JSON.stringify(n.title) + ', ' + JSON.stringify(n.text) + ', ' + JSON.stringify(n.source||"") + ')\'>✅ Опубликовать</button><button class="btn btn-del btn-sm" onclick="deleteIncoming(' + n.id + ')">✕</button></div></div>'
     ).join("");
   } catch(e) {}
 }

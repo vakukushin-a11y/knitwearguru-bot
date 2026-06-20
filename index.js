@@ -205,20 +205,8 @@ async function fetchIncomingNews() {
         // AI scoring + analysis
         let score = 0, aiAnalysis = "";
         try {
-          const resp = await openai.chat.completions.create({
-            model: "deepseek/deepseek-chat", max_tokens: 300, temperature: 0.3,
-            messages: [{ role: "system", content: "Оцени статью 0-10: насколько она о трикотаже/вязании. JSON: {\"score\":число,\"analysis\":\"журналистский анализ на русском до 100 слов: узоры, пряжа, техники, тренды\"}. 8+ только если напрямую о трикотаже." }, { role: "user", content: "Заголовок: " + a.title + "\nТекст: " + a.text.slice(0, 500) }]
-          });
-          const raw = resp.choices[0]?.message?.content || "{}";
-          const json = JSON.parse((raw.match(/\{[\s\S]*\}/) || ["{}"])[0]);
-          score = parseInt(json.score) || 0;
-          aiAnalysis = (json.analysis || "").slice(0, 500);
-        } catch(e) {}
-
-        if (score >= 8) {
-          existing.push({ id: Date.now() + Math.random(), title: a.title, text: a.text.slice(0, 500), link: a.link, source: a.source, date: "", status: "incoming", score, aiAnalysis, fetchedAt: new Date().toISOString() });
-          existingLinks.add(a.link);
-        }
+        existing.push({ id: Date.now() + Math.random(), title: a.title, text: a.text.slice(0, 500), link: a.link, source: a.source, date: "", status: "incoming", fetchedAt: new Date().toISOString() });
+        existingLinks.add(a.link);
       }
     } catch(e) {}
   }
