@@ -20,18 +20,19 @@ const openai = new OpenAI({ baseURL: BASE_URL, apiKey: API_KEY });
 const DESIGNER = "Ирина Кукушина";
 const PHONE = "+7 922 20 19 19 9";
 
-// Web scraping of Russian knitwear sources only
+const RSSParser = require("rss-parser");
+const rssParser = new RSSParser({ timeout: 10000 });
+
+const RSS_SOURCES = [
+  { name: "Google News Трикотаж", url: "https://news.google.com/rss/search?q=трикотаж+OR+вязание+OR+свитер+OR+кардиган+OR+пряжа&hl=ru&gl=RU&ceid=RU:ru" },
+  { name: "Burdastyle Вязание", url: "https://burdastyle.ru/rss/articles/vjazanie/" },
+  { name: "FashionUnited Россия", url: "https://ru.fashionunited.com/rss" },
+];
+
+// Web scraping — fallback if RSS fails
 const SCRAPE_SOURCES = [
   { name: "Мода 24/7", url: "https://moda247.ru/news/" },
-  { name: "InterModa", url: "https://www.intermoda.ru/" },
-  { name: "РИА Мода", url: "https://ria.ru/fashion/" },
-  { name: "FashionNetwork", url: "https://ru.fashionnetwork.com/news/" },
   { name: "ProFashion", url: "https://profashion.ru/news/" },
-  { name: "FashionUnited", url: "https://fashionunited.ru/news" },
-  { name: "Buro 24/7", url: "https://www.buro247.ru/news/fashion" },
-  { name: "The Blueprint", url: "https://theblueprint.ru/fashion" },
-  { name: "Sobaka.ru", url: "https://www.sobaka.ru/fashion" },
-  { name: "Woman.ru Мода", url: "https://www.woman.ru/fashion/" },
 ];
 
 const KNITWEAR_KEYWORDS = [
@@ -79,16 +80,26 @@ async function scrapeSite(source) {
 
 async function fetchLiveNews() {
   const allArticles = [];
+  // RSS first
+  for (const src of RSS_SOURCES) {
+    try {
+      const feed = await rssParser.parseURL(src.url);
+      for (const item of (feed.items || [])) {
+        if (allArticles.length >= 7) break;
+        const title = item.title || "";
+        const text = (item.contentSnippet || item.content || "").replace(/<[^>]*>/g, "");
+        allArticles.push({ date: item.pubDate ? new Date(item.pubDate).toLocaleDateString("ru-RU") : "", title, text: text.slice(0, 200), source: src.name });
+      }
+    } catch(e) {}
+  }
+  // Scraping fallback
   for (const src of SCRAPE_SOURCES) {
     if (allArticles.length >= 7) break;
     try {
-      const articles = await scrapeSite(src);
+      const articles = await scrapeSite(src.url);
       for (const a of articles) {
         if (allArticles.length >= 7) break;
-        const combined = (a.title + " " + a.text).toLowerCase();
-        if (isKnitwearArticle(title, text)) {
-          allArticles.push({ date: "", title: a.title, text: a.text.slice(0, 200), source: a.source });
-        }
+        allArticles.push({ date: "", title: a.title, text: a.text.slice(0, 200), source: a.source });
       }
     } catch(e) {}
   }
@@ -201,18 +212,35 @@ async function fetchIncomingNews() {
   const existing = readIncoming();
   const existingLinks = new Set(existing.map(n => n.link));
   
+  // 1. RSS (Google News, Burdastyle)
+  for (const src of RSS_SOURCES) {
+    try {
+      const feed = await rssParser.parseURL(src.url);
+      for (const item of (feed.items || [])) {
+        const title = item.title || "";
+        const text = (item.contentSnippet || item.content || "").replace(/<[^>]*>/g, "");
+        const link = item.link || "";
+        if (!link || existingLinks.has(link)) continue;
+        const combined = (title + " " + text).toLowerCase();
+        if (KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) {
+          existing.push({ id: Date.now() + Math.random(), title, text: text.slice(0, 500), link, source: src.name, date: item.pubDate ? new Date(item.pubDate).toLocaleDateString("ru-RU") : "", status: "incoming", fetchedAt: new Date().toISOString() });
+          existingLinks.add(link);
+        }
+      }
+    } catch(e) {}
+  }
+  
+  // 2. Web scraping fallback
   for (const src of SCRAPE_SOURCES) {
     try {
-      const articles = await scrapeSite(src);
+      const articles = await scrapeSite(src.url);
       for (const a of articles) {
         if (!a.link || existingLinks.has(a.link)) continue;
-        const combined = (a.title + " " + a.text).toLowerCase();
-        const matchCount = KNITWEAR_KEYWORDS.filter(kw => combined.includes(kw)).length;
-        if (matchCount < 2) continue;
-        console.log("Match:", matchCount, "–", a.title.slice(0, 60));
-        
-        existing.push({ id: Date.now() + Math.random(), title: a.title, text: a.text.slice(0, 500), link: a.link, source: a.source, date: "", status: "incoming", matchCount, fetchedAt: new Date().toISOString() });
-        existingLinks.add(a.link);
+        const combined = (a.title).toLowerCase();
+        if (KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) {
+          existing.push({ id: Date.now() + Math.random(), title: a.title, text: a.text.slice(0, 500), link: a.link, source: a.source, date: "", status: "incoming", fetchedAt: new Date().toISOString() });
+          existingLinks.add(a.link);
+        }
       }
     } catch(e) {}
   }
