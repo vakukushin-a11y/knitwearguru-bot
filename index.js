@@ -45,44 +45,35 @@ const KNITWEAR_KEYWORDS = [
 function isKnitwearArticle(title, text) {
   const combined = (title + " " + text).toLowerCase();
   const matches = KNITWEAR_KEYWORDS.filter(kw => combined.includes(kw));
-  return matches.length >= 7;
+  return matches.length >= 3;
 }
 
 async function scrapeSite(source) {
   try {
     const resp = await fetch(source.url, {
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
       signal: AbortSignal.timeout(10000)
     });
     const html = await resp.text();
     const articles = [];
     
-    // Method 1: Find all links with title text
-    const linkRegex = /<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+    const linkRegex = /<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>\s*([\s\S]*?)\s*<\/a>/gi;
     let match;
     while ((match = linkRegex.exec(html)) !== null) {
       const href = match[1];
-      const title = match[2].replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
-      if (title.length > 25 && title.length < 300 && !href.match(/\.(jpg|png|gif|css|js|ico)/)) {
-        articles.push({ title, link: href, text: title });
-      }
-      if (articles.length > 40) break;
+      let title = match[2];
+      // Strip HTML tags inside the link (images, spans, etc)
+      title = title.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+      // Skip: too short, social links, logos, image-only, JS links
+      if (title.length < 30 || title.length > 300) continue;
+      if (href.match(/\.(jpg|png|gif|svg|css|js|ico|pdf)/i)) continue;
+      if (href.match(/pinterest|twitter|facebook|linkedin|instagram|youtube|vkontakte|t\.me/)) continue;
+      
+      articles.push({ title, link: href, text: title });
+      if (articles.length > 30) break;
     }
     
-    // Method 2: Look for article/news card titles
-    const cardRegex = /<(h[2-4]|div class="[^"]*title[^"]*"|span class="[^"]*title[^"]*")[^>]*>([\s\S]*?)<\/(h[2-4]|div|span)>/gi;
-    while ((match = cardRegex.exec(html)) !== null) {
-      const title = match[2].replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
-      if (title.length > 25 && title.length < 200) {
-        articles.push({ title, link: source.url, text: title });
-      }
-      if (articles.length > 50) break;
-    }
-    
-    return articles.slice(0, 30).map(a => ({
-      ...a,
-      source: source.name,
-    }));
+    return articles.slice(0, 25).map(a => ({ ...a, source: source.name }));
   } catch(e) { return []; }
 }
 
