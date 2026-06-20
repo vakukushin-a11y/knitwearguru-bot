@@ -32,10 +32,16 @@ const SCRAPE_SOURCES = [
 const KNITWEAR_KEYWORDS = [
   "трикотаж", "вязан", "пряжа", "свитер", "кардиган", "джемпер", "пуловер",
   "шерсть", "вязк", "спицы", "меринос", "кашемир", "хлопок", "акрил", "вискоза",
-  "палантин", "снуд", "плед", "платье", "туника", "шапк", "шарф", "мода",
-  "коллекция", "показ", "дизайнер", "бренд", "ателье", "производств", "фабрик",
-  "knit", "knitwear", "yarn", "wool", "sweater", "cardigan", "cashmere",
+  "палантин", "снуд", "плед", "туника", "шарф", "шапк",
+  "knit", "knitwear", "yarn", "wool", "sweater", "cardigan", "cashmere", "crochet",
 ];
+
+// Must match at least 2 knitwear-specific keywords
+function isKnitwearArticle(title, text) {
+  const combined = (title + " " + text).toLowerCase();
+  const matches = KNITWEAR_KEYWORDS.filter(kw => combined.includes(kw));
+  return matches.length >= 2;
+}
 
 async function scrapeSite(source) {
   try {
@@ -79,7 +85,7 @@ async function fetchLiveNews() {
       for (const a of articles) {
         if (allArticles.length >= 7) break;
         const combined = (a.title + " " + a.text).toLowerCase();
-        if (KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) {
+        if (isKnitwearArticle(title, text)) {
           allArticles.push({ date: "", title: a.title, text: a.text.slice(0, 200), source: a.source });
         }
       }
@@ -200,7 +206,7 @@ async function fetchIncomingNews() {
       for (const a of articles) {
         if (!a.link || existingLinks.has(a.link)) continue;
         const combined = (a.title + " " + a.text).toLowerCase();
-        if (!KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) continue;
+        if (!isKnitwearArticle(a.title, a.text)) continue;
         
         existing.push({ id: Date.now() + Math.random(), title: a.title, text: a.text.slice(0, 500), link: a.link, source: a.source, date: "", status: "incoming", fetchedAt: new Date().toISOString() });
         existingLinks.add(a.link);
