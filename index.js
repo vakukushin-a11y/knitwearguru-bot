@@ -17,13 +17,44 @@ const DESIGNER = "Ирина Кукушина";
 const PHONE = "+7 922 20 19 19 9";
 
 // ── News ─────────────────────────────────────────────────────────────────
-const NEWS = [
-  { date: "19.06.2026", title: "Тренды лета 2026: трикотаж в центре внимания", text: "Ажурные платья и лёгкие кардиганы ручной вязки становятся главным выбором сезона. Российские дизайнеры делают ставку на натуральные материалы.", source: "Мода 24/7" },
-  { date: "16.06.2026", title: "Российские фабрики наращивают выпуск пряжи", text: "По данным Минпромторга, производство пряжи для трикотажа в РФ выросло на 18% за первое полугодие 2026 года.", source: "РИА Новости" },
-  { date: "12.06.2026", title: "Московская неделя моды: трикотажные коллекции", text: "На Moscow Fashion Week 2026 более 30% показов включали трикотажные изделия. Свитеры и кардиганы — главные хиты.", source: "Мода 24/7" },
-  { date: "08.06.2026", title: "Машинное вязание: новый тренд среди дизайнеров", text: "Всё больше российских дизайнеров приобретают вязальные машины для авторских коллекций малых тиражей.", source: "InterModa" },
-  { date: "03.06.2026", title: "Экспорт российского трикотажа: рост на 22%", text: "Российские производители увеличили экспорт в страны СНГ и Азии. Качество и цена делают трикотаж конкурентоспособным.", source: "РИА Новости" },
+const RSSParser = require("rss-parser");
+const rssParser = new RSSParser({ timeout: 10000 });
+
+const RSS_SOURCES = [
+  { name: "ELLE Россия", url: "https://www.elle.ru/rss/", type: "ru" },
+  { name: "Vogue Россия", url: "https://www.vogue.ru/rss/", type: "ru" },
+  { name: "FashionUnited", url: "https://ru.fashionunited.com/rss", type: "ru" },
 ];
+
+const KNITWEAR_KEYWORDS = [
+  "трикотаж", "вязан", "пряжа", "свитер", "кардиган", "джемпер", "пуловер",
+  "шерсть", "вязк", "спицы", "меринос", "кашемир", "хлопок", "акрил", "вискоза",
+  "палантин", "снуд", "плед", "платье", "туника", "шапк", "шарф",
+  "knit", "knitwear", "yarn", "wool", "sweater", "cardigan", "cashmere",
+];
+
+async function fetchLiveNews() {
+  const allArticles = [];
+  for (const src of RSS_SOURCES) {
+    try {
+      const feed = await rssParser.parseURL(src.url);
+      for (const item of (feed.items || [])) {
+        const title = item.title || "";
+        const text = item.contentSnippet || item.content || "";
+        const combined = (title + " " + text).toLowerCase();
+        if (KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) {
+          allArticles.push({
+            date: item.pubDate ? new Date(item.pubDate).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "",
+            title: title,
+            text: text.slice(0, 200),
+            source: src.name,
+          });
+        }
+      }
+    } catch (e) { /* skip failed source */ }
+  }
+  return allArticles.slice(0, 7);
+}
 
 // ── Encyclopedia ──────────────────────────────────────────────────────────
 const ENCYCLOPEDIA = {
@@ -66,7 +97,7 @@ app.get("/api/products", (_, res) => res.json(PRODUCTS));
 // ── Health & API routes ───────────────────────────────────────────────────
 app.get("/", (_, res) => res.send("ZAVYAZ Bots OK"));
 app.get("/api/health", (_, res) => res.json({ status: "ok" }));
-app.get("/api/news", (_, res) => res.json(NEWS));
+app.get("/api/news", async (_, res) => { const articles = await fetchLiveNews(); res.json(articles); });
 app.get("/api/encyclopedia", (_, res) => res.json(ENCYCLOPEDIA));
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -133,7 +164,7 @@ async function telegramBot() {
           const cb = u.callback_query;
           const cid = cb.message.chat.id;
           await fetch(`${API}/answerCallbackQuery?callback_query_id=${cb.id}`);
-          if (cb.data === "news") { encSessions.delete(cid); const t = NEWS.map(n => `📅 ${n.date} · ${n.source}\n<b>${n.title}</b>\n${n.text}`).join("\n\n"); await tgSend(cid, `📰 <b>Новости</b>\n\n${t}`, menu()); }
+          if (cb.data === "news") { encSessions.delete(cid); await tgSend(cid, "📰 Загружаю свежие новости..."); const articles = await fetchLiveNews(); if (articles.length === 0) await tgSend(cid, "Новостей не найдено.", menu()); else { const t = articles.map(n => "📅 " + n.date + " · " + n.source + "\n<b>" + n.title + "</b>\n" + n.text).join("\n\n"); await tgSend(cid, "📰 <b>Новости трикотажа</b>\n\n" + t, menu()); } }
           else if (cb.data === "contact") { encSessions.delete(cid); await tgSend(cid, `${DESIGNER} — дизайнер ателье «ЗАВЯЗЬ»\n\n📞 ${PHONE}`, menu()); }
           else if (cb.data === "order") { encSessions.delete(cid); await tgSend(cid, "Выберите изделие 👇", catMenu()); }
           else if (cb.data.startsWith("cat:")) { const name = cb.data.slice(4); const p = PRODUCTS.find(x => x.name === name); if (p) { await tgSendPhoto(cid, __dirname + "/img/" + p.img, `${p.name}\n${p.price}\n\n📞 Для заказа: ${PHONE}`); await tgSend(cid, "Что ещё интересует?", menu()); } }
@@ -199,7 +230,7 @@ async function maxBot() {
           else { const a = await askAI(text); await mxSend(uid, a, menu()); }
         } else if (u.update_type === "message_callback" && u.callback) {
           const uid = u.callback.user.user_id; const p = u.callback.payload || u.callback.data || "";
-          if (p === "news") { encSessions.delete(uid); const t = NEWS.map(n => `📅 ${n.date} · ${n.source}\n${n.title}\n${n.text}`).join("\n\n"); await mxSend(uid, `📰 Новости\n\n${t}`, menu()); }
+          if (p === "news") { encSessions.delete(uid); await mxSend(uid, "📰 Загружаю свежие новости..."); const articles = await fetchLiveNews(); if (articles.length === 0) await mxSend(uid, "Новостей не найдено.", menu()); else { const t = articles.map(n => "📅 " + n.date + " · " + n.source + "\n" + n.title + "\n" + n.text).join("\n\n"); await mxSend(uid, "📰 Новости трикотажа\n\n" + t, menu()); } }
           else if (p === "contact") { encSessions.delete(uid); await mxSend(uid, `${DESIGNER} — дизайнер ателье «ЗАВЯЗЬ»\n\n📞 ${PHONE}`, menu()); }
           else if (p === "order") { encSessions.delete(uid); await mxSend(uid, "Выберите изделие 👇", catMenu()); }
           else if (p.startsWith("cat:")) { const name = p.slice(4); const prod = PRODUCTS.find(x => x.name === name); if (prod) { await mxSend(uid, `${prod.name}\n${prod.price}\n\n📞 Для заказа: ${PHONE}`); const cdnUrl = "https://cdn.jsdelivr.net/gh/vakukushin-a11y/zavyaz-site@main/" + encodeURIComponent(prod.img); await mxSendPhoto(uid, cdnUrl); await mxSend(uid, "Что ещё интересует?", menu()); } }
