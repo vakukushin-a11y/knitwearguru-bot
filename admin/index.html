@@ -79,6 +79,11 @@ body{font-family:'Montserrat',sans-serif;background:#f5f0eb;min-height:100vh}
 
   <h3 style="font-family:'Cormorant Garamond',serif;margin-bottom:12px">Опубликованные новости (<span id="newsCount">0</span>)</h3>
   <div class="news-list" id="newsList"></div>
+  <div class="news-pager" id="newsPager" style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:24px">
+    <button class="btn btn-outline btn-sm" onclick="newsPrev()" id="npPrev">← Назад</button>
+    <span id="npInfo" style="font-size:0.85rem;color:#999"></span>
+    <button class="btn btn-outline btn-sm" onclick="newsNext()" id="npNext">Далее →</button>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -97,15 +102,25 @@ async function login() {
   } catch(e) { document.getElementById("loginErr").style.display = "block"; }
 }
 async function logout() { await fetch(API + "/logout", { method: "POST" }); document.getElementById("app").style.display = "none"; document.getElementById("loginBox").style.display = "block"; document.getElementById("password").value = ""; }
+let np = 0, npp = 9, nAll = [];
 async function loadNews() {
   try {
-    const r = await fetch(API + "/news"); const data = await r.json();
-    document.getElementById("newsCount").textContent = data.length;
-    document.getElementById("newsList").innerHTML = data.map(n =>
-      '<div class="news-card"><div><strong>' + n.title + '</strong><span>' + n.date + '</span></div><div class="news-card-actions"><button class="btn btn-outline btn-sm" onclick="editNews(' + n.id + ')">✎</button><button class="btn btn-del btn-sm" onclick="deleteNews(' + n.id + ')">✕</button></div></div>'
-    ).join("");
+    const r = await fetch(API + "/news"); nAll = await r.json(); np = 0;
+    document.getElementById("newsCount").textContent = nAll.length;
+    renderNews();
   } catch(e) {}
 }
+function renderNews() {
+  const start = np * npp; const page = nAll.slice(start, start + npp);
+  document.getElementById("newsList").innerHTML = page.length === 0 && np > 0
+    ? '<p style="text-align:center;color:#999;padding:20px">Нет больше новостей</p>'
+    : page.map(n => '<div class="news-card"><div><strong>' + n.title + '</strong><span>' + n.date + '</span></div><div class="news-card-actions"><button class="btn btn-outline btn-sm" onclick="editNews(' + n.id + ')">✎</button><button class="btn btn-del btn-sm" onclick="deleteNews(' + n.id + ')">✕</button></div></div>').join("");
+  document.getElementById("npInfo").textContent = (np + 1) + ' из ' + Math.max(1, Math.ceil(nAll.length / npp));
+  document.getElementById("npPrev").style.display = np > 0 ? 'inline-block' : 'none';
+  document.getElementById("npNext").style.display = (start + npp) < nAll.length ? 'inline-block' : 'none';
+}
+function newsNext() { if ((np + 1) * npp < nAll.length) { np++; renderNews(); } }
+function newsPrev() { if (np > 0) { np--; renderNews(); } }
 async function saveNews() {
   const title = document.getElementById("newsTitle").value.trim();
   const text = document.getElementById("newsText").value.trim();
