@@ -72,36 +72,20 @@ async function scrapeSite(source) {
 
 async function fetchLiveNews() {
   const allArticles = [];
-  // Try RSS first
-  for (const src of RSS_SOURCES) {
-    try {
-      const feed = await rssParser.parseURL(src.url);
-      for (const item of (feed.items || [])) {
-        const title = item.title || "";
-        const text = item.contentSnippet || item.content || "";
-        const combined = (title + " " + text).toLowerCase();
-        if (KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) {
-          allArticles.push({
-            date: item.pubDate ? new Date(item.pubDate).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "",
-            title: title, text: text.slice(0, 200), source: src.name,
-          });
-        }
-      }
-    } catch (e) { /* skip failed RSS */ }
-  }
-  // Then scrape sites
   for (const src of SCRAPE_SOURCES) {
     if (allArticles.length >= 7) break;
-    const scraped = await scrapeSite(src);
-    for (const a of scraped) {
-      if (allArticles.length >= 7) break;
-      const combined = (a.title + " " + a.text).toLowerCase();
-      if (KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) {
-        allArticles.push({ date: "", title: a.title, text: a.text.slice(0, 200), source: a.source });
+    try {
+      const articles = await scrapeSite(src);
+      for (const a of articles) {
+        if (allArticles.length >= 7) break;
+        const combined = (a.title + " " + a.text).toLowerCase();
+        if (KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) {
+          allArticles.push({ date: "", title: a.title, text: a.text.slice(0, 200), source: a.source });
+        }
       }
-    }
+    } catch(e) {}
   }
-  return allArticles.slice(0, 7);
+  return allArticles;
 }
 
 // ── Encyclopedia ──────────────────────────────────────────────────────────
