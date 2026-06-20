@@ -24,15 +24,15 @@ const RSSParser = require("rss-parser");
 const rssParser = new RSSParser({ timeout: 10000 });
 
 const RSS_SOURCES = [
-  { name: "Google News Трикотаж", url: "https://news.google.com/rss/search?q=трикотаж+OR+вязание+OR+свитер+OR+кардиган+OR+пряжа&hl=ru&gl=RU&ceid=RU:ru" },
-  { name: "Burdastyle Вязание", url: "https://burdastyle.ru/rss/articles/vjazanie/" },
-  { name: "FashionUnited Россия", url: "https://ru.fashionunited.com/rss" },
+  { name: "ELLE Россия", url: "https://www.elle.ru/rss/" },
+  { name: "Vogue Россия", url: "https://www.vogue.ru/rss/" },
 ];
 
-// Web scraping — fallback if RSS fails
+// Web scraping 
 const SCRAPE_SOURCES = [
   { name: "Мода 24/7", url: "https://moda247.ru/news/" },
   { name: "ProFashion", url: "https://profashion.ru/news/" },
+  { name: "InterModa", url: "https://www.intermoda.ru/" },
 ];
 
 const KNITWEAR_KEYWORDS = [
