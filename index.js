@@ -202,9 +202,6 @@ async function fetchIncomingNews() {
         const combined = (a.title + " " + a.text).toLowerCase();
         if (!KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) continue;
         
-        // AI scoring + analysis
-        let score = 0, aiAnalysis = "";
-        try {
         existing.push({ id: Date.now() + Math.random(), title: a.title, text: a.text.slice(0, 500), link: a.link, source: a.source, date: "", status: "incoming", fetchedAt: new Date().toISOString() });
         existingLinks.add(a.link);
       }
@@ -387,7 +384,7 @@ async function maxBot() {
           else { const a = await askAI(text); await mxSend(uid, a, menu()); }
         } else if (u.update_type === "message_callback" && u.callback) {
           const uid = u.callback.user.user_id; const p = u.callback.payload || u.callback.data || "";
-          else if (p === "contact") { encSessions.delete(uid); await mxSend(uid, DESIGNER + " — дизайнер ателье ЗАВЯЗЬ\n\n📞 " + PHONE, menu()); }
+          if (p === "contact") { encSessions.delete(uid); await mxSend(uid, DESIGNER + " — дизайнер ателье ЗАВЯЗЬ\n\n📞 " + PHONE, menu()); }
           else if (p === "order") { encSessions.delete(uid); await mxSend(uid, "Выберите изделие 👇", catMenu()); }
           else if (p.startsWith("cat:")) { const name = p.slice(4); const prod = PRODUCTS.find(x => x.name === name); if (prod) { await mxSend(uid, `${prod.name}\n${prod.price}\n\n📞 Для заказа: ${PHONE}`); const cdnUrl = "https://cdn.jsdelivr.net/gh/vakukushin-a11y/zavyaz-site@main/" + encodeURIComponent(prod.img); await mxSendPhoto(uid, cdnUrl); await mxSend(uid, "Что ещё интересует?", menu()); } }
           else if (p === "menu" || p === "menu:main") { encSessions.delete(uid); await mxSend(uid, "Главное меню:", menu()); }
