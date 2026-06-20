@@ -309,7 +309,7 @@ async function telegramBot() {
     await fetch(`${API}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
   }
 
-  function menu() { return [[{ text: "📋 Заказать", callback_data: "order" }, { text: "🧶 Энциклопедия", callback_data: "encyclopedia" }], [{ text: "📰 Новости", callback_data: "news" }, { text: "📞 Позвонить", callback_data: "contact" }]]; }
+  function menu() { return [[{ text: "📋 Заказать", callback_data: "order" }, { text: "🧶 Энциклопедия", callback_data: "encyclopedia" }], [{ text: "📞 Позвонить", callback_data: "contact" }]]; }
   function encMenu() { return [[{ text: "↩️ Меню", callback_data: "menu" }, { text: "🧶 Спросить ещё", callback_data: "encyclopedia" }]]; }
   function catMenu() { const rows = []; for (let i = 0; i < PRODUCTS.length; i += 2) rows.push(PRODUCTS.slice(i, i + 2).map(p => ({ text: p.name, callback_data: "cat:" + p.name }))); rows.push([{ text: "↩️ Меню", callback_data: "menu" }]); return rows; }
 
@@ -334,8 +334,7 @@ async function telegramBot() {
           const cb = u.callback_query;
           const cid = cb.message.chat.id;
           await fetch(`${API}/answerCallbackQuery?callback_query_id=${cb.id}`);
-          if (cb.data === "news") { encSessions.delete(cid); await tgSend(cid, "📰 Загружаю новости..."); const articles = await getNews(); if (articles.length === 0) await tgSend(cid, "Новостей не найдено.", menu()); else { const t = articles.map(n => "📅 " + n.date + " · " + n.source + "\n<b>" + n.title + "</b>\n" + n.text).join("\n\n"); await tgSend(cid, "📰 <b>Новости трикотажа</b>\n\n" + t, menu()); } }
-          else if (cb.data === "contact") { encSessions.delete(cid); await tgSend(cid, `${DESIGNER} — дизайнер ателье «ЗАВЯЗЬ»\n\n📞 ${PHONE}`, menu()); }
+          if (cb.data === "contact") { encSessions.delete(cid); await tgSend(cid, DESIGNER + " — дизайнер ателье «ЗАВЯЗЬ»\n\n📞 " + PHONE, menu()); }
           else if (cb.data === "order") { encSessions.delete(cid); await tgSend(cid, "Выберите изделие 👇", catMenu()); }
           else if (cb.data.startsWith("cat:")) { const name = cb.data.slice(4); const p = PRODUCTS.find(x => x.name === name); if (p) { await tgSendPhoto(cid, __dirname + "/img/" + p.img, `${p.name}\n${p.price}\n\n📞 Для заказа: ${PHONE}`); await tgSend(cid, "Что ещё интересует?", menu()); } }
           else if (cb.data === "menu") { encSessions.delete(cid); await tgSend(cid, "Главное меню:", menu()); }
@@ -364,7 +363,7 @@ async function maxBot() {
     await fetch(url.toString(), { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
   }
 
-  function menu() { const rows = [[{ type: "callback", text: "📋 Заказать", payload: "order" }, { type: "callback", text: "🧶 Энциклопедия", payload: "encyclopedia" }], [{ type: "callback", text: "📰 Новости", payload: "news" }, { type: "callback", text: "📞 Позвонить", payload: "contact" }]]; return { type: "inline_keyboard", payload: { buttons: rows } }; }
+  function menu() { const rows = [[{ type: "callback", text: "📋 Заказать", payload: "order" }, { type: "callback", text: "🧶 Энциклопедия", payload: "encyclopedia" }], [{ text: "📞 Позвонить", payload: "contact" }]]; return { type: "inline_keyboard", payload: { buttons: rows } }; }
   function encMenu() { return { type: "inline_keyboard", payload: { buttons: [[{ type: "callback", text: "↩️ Меню", payload: "menu" }, { type: "callback", text: "🧶 Спросить ещё", payload: "encyclopedia" }]] } }; }
   function catMenu() { const rows = []; for (let i = 0; i < PRODUCTS.length; i += 2) rows.push(PRODUCTS.slice(i, i + 2).map(p => ({ type: "callback", text: p.name, payload: "cat:" + p.name }))); rows.push([{ type: "callback", text: "↩️ Меню", payload: "menu" }]); return { type: "inline_keyboard", payload: { buttons: rows } }; }
 
@@ -400,8 +399,7 @@ async function maxBot() {
           else { const a = await askAI(text); await mxSend(uid, a, menu()); }
         } else if (u.update_type === "message_callback" && u.callback) {
           const uid = u.callback.user.user_id; const p = u.callback.payload || u.callback.data || "";
-          if (p === "news") { encSessions.delete(uid); await mxSend(uid, "📰 Загружаю новости..."); const articles = await getNews(); if (articles.length === 0) await mxSend(uid, "Новостей не найдено.", menu()); else { const t = articles.map(n => "📅 " + n.date + " · " + n.source + "\n" + n.title + "\n" + n.text).join("\n\n"); await mxSend(uid, "📰 Новости трикотажа\n\n" + t, menu()); } }
-          else if (p === "contact") { encSessions.delete(uid); await mxSend(uid, `${DESIGNER} — дизайнер ателье «ЗАВЯЗЬ»\n\n📞 ${PHONE}`, menu()); }
+          else if (p === "contact") { encSessions.delete(uid); await mxSend(uid, DESIGNER + " — дизайнер ателье ЗАВЯЗЬ\n\n📞 " + PHONE, menu()); }
           else if (p === "order") { encSessions.delete(uid); await mxSend(uid, "Выберите изделие 👇", catMenu()); }
           else if (p.startsWith("cat:")) { const name = p.slice(4); const prod = PRODUCTS.find(x => x.name === name); if (prod) { await mxSend(uid, `${prod.name}\n${prod.price}\n\n📞 Для заказа: ${PHONE}`); const cdnUrl = "https://cdn.jsdelivr.net/gh/vakukushin-a11y/zavyaz-site@main/" + encodeURIComponent(prod.img); await mxSendPhoto(uid, cdnUrl); await mxSend(uid, "Что ещё интересует?", menu()); } }
           else if (p === "menu" || p === "menu:main") { encSessions.delete(uid); await mxSend(uid, "Главное меню:", menu()); }
