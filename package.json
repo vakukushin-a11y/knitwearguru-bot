@@ -12,6 +12,7 @@
   "type": "commonjs",
   "dependencies": {
     "express": "^5.2.1",
+    "express-session": "^1.19.0",
     "openai": "^6.44.0",
     "rss-parser": "^3.13.0"
   }

@@ -1,8 +1,12 @@
 const express = require("express");
 const OpenAI = require("openai");
 const app = express();
+const session = require("express-session");
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(session({ secret: "zavyz-cms-2026", resave: false, saveUninitialized: false, cookie: { maxAge: 86400000 } }));
 app.use("/img", express.static(__dirname + "/img"));
+app.use("/admin", express.static(__dirname + "/admin"));
 
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.OPENAI_BASE_URL || "https://routerai.ru/api/v1";
@@ -97,7 +101,67 @@ app.get("/api/products", (_, res) => res.json(PRODUCTS));
 // ── Health & API routes ───────────────────────────────────────────────────
 app.get("/", (_, res) => res.send("ZAVYAZ Bots OK"));
 app.get("/api/health", (_, res) => res.json({ status: "ok" }));
-app.get("/api/news", async (_, res) => { const articles = await fetchLiveNews(); res.json(articles); });
+app.get("/api/news", async (_, res) => { const cms = readNews(); if (cms.length > 0) return res.json(cms.slice(0, 9)); const articles = await fetchLiveNews(); res.json(articles); });
+
+// ── CMS ───────────────────────────────────────────────────────────────────
+const CMS_PASSWORD = "zavyz2026";
+const NEWS_FILE = __dirname + "/news.json";
+
+function readNews() { try { return JSON.parse(fs.readFileSync(NEWS_FILE, "utf8")); } catch { return []; } }
+function writeNews(data) { fs.writeFileSync(NEWS_FILE, JSON.stringify(data, null, 2)); }
+if (!fs.existsSync(NEWS_FILE)) writeNews([]);
+
+app.post("/api/cms/login", (req, res) => {
+  if (req.body.password === CMS_PASSWORD) { req.session.admin = true; return res.json({ ok: true }); }
+  res.status(401).json({ ok: false, error: "Неверный пароль" });
+});
+app.get("/api/cms/check", (req, res) => { res.json({ ok: !!req.session.admin }); });
+app.post("/api/cms/logout", (req, res) => { req.session.destroy(); res.json({ ok: true }); });
+
+function requireAdmin(req, res, next) {
+  if (!req.session.admin) return res.status(401).json({ error: "Требуется вход" });
+  next();
+}
+
+app.get("/api/cms/news", requireAdmin, (_, res) => { res.json(readNews()); });
+
+app.post("/api/cms/news", requireAdmin, (req, res) => {
+  const { title, text, date } = req.body;
+  if (!title || !text) return res.status(400).json({ error: "Заголовок и текст обязательны" });
+  const news = readNews();
+  const article = { id: Date.now(), title, text, date: date || new Date().toLocaleDateString("ru-RU"), createdAt: new Date().toISOString() };
+  news.unshift(article);
+  writeNews(news);
+  res.json({ ok: true, article });
+});
+
+app.put("/api/cms/news/:id", requireAdmin, (req, res) => {
+  const news = readNews();
+  const idx = news.findIndex(n => n.id === parseInt(req.params.id));
+  if (idx === -1) return res.status(404).json({ error: "Не найдено" });
+  const { title, text, date } = req.body;
+  if (title) news[idx].title = title;
+  if (text) news[idx].text = text;
+  if (date) news[idx].date = date;
+  news[idx].updatedAt = new Date().toISOString();
+  writeNews(news);
+  res.json({ ok: true, article: news[idx] });
+});
+
+app.delete("/api/cms/news/:id", requireAdmin, (req, res) => {
+  const news = readNews();
+  const filtered = news.filter(n => n.id !== parseInt(req.params.id));
+  if (filtered.length === news.length) return res.status(404).json({ error: "Не найдено" });
+  writeNews(filtered);
+  res.json({ ok: true });
+});
+
+// Public news API — for site and bots
+app.get("/api/public/news", (_, res) => {
+  const news = readNews();
+  res.json(news.slice(0, 20));
+});
+
 app.get("/api/encyclopedia", (_, res) => res.json(ENCYCLOPEDIA));
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -242,4 +306,21 @@ async function maxBot() {
   }
 }
 
-app.listen(PORT, () => { console.log(`Server on ${PORT}`); telegramBot(); maxBot(); });
+app.listen(PORT, () => {
+  console.log(`Server on port ${PORT}`);
+  const os = require("os");
+  const ifaces = os.networkInterfaces();
+  console.log("\n📡 Доступ из домашней сети:");
+  Object.keys(ifaces).forEach(name => {
+    ifaces[name].forEach(iface => {
+      if (iface.family === "IPv4" && !iface.internal) {
+        console.log(`   http://${iface.address}:${PORT}/admin   ← админка CMS`);
+        console.log(`   http://${iface.address}:${PORT}          ← API`);
+      }
+    });
+  });
+  console.log(`\n🔑 Пароль CMS: zavyz2026`);
+  console.log(`\nЗапуск ботов...\n`);
+  telegramBot();
+  maxBot();
+});

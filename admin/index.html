@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CMS — ЗАВЯЗЬ</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Montserrat',sans-serif;background:#f5f0eb;min-height:100vh}
+.login-box{max-width:400px;margin:100px auto;background:#fff;padding:40px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.06)}
+.login-box h1{font-family:'Cormorant Garamond',serif;font-size:2rem;margin-bottom:8px}
+.login-box p{color:#999;font-size:0.8rem;margin-bottom:20px}
+.login-box input{width:100%;padding:12px;border:1px solid #e0e0e0;font-size:0.9rem;outline:none;text-align:center;margin-bottom:12px;letter-spacing:2px}
+.login-box input:focus{border-color:#7b4b3a}
+.btn{padding:12px 32px;background:#7b4b3a;color:#fff;border:none;cursor:pointer;font-size:0.8rem;text-transform:uppercase;letter-spacing:1px}
+.btn:hover{background:#5a3427}
+.btn-sm{padding:8px 16px;font-size:0.7rem}
+.btn-outline{background:transparent;color:#7b4b3a;border:1px solid #7b4b3a}
+.btn-outline:hover{background:#7b4b3a;color:#fff}
+.btn-del{background:#c0392b}.btn-del:hover{background:#a93226}
+.app{display:none;max-width:900px;margin:0 auto;padding:24px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #7b4b3a}
+.header h1{font-family:'Cormorant Garamond',serif;font-size:2rem}
+.header span{font-size:0.8rem;color:#999}
+.form-box{background:#fff;padding:24px;margin-bottom:24px;box-shadow:0 2px 12px rgba(0,0,0,0.04)}
+.form-box h3{font-family:'Cormorant Garamond',serif;font-size:1.2rem;margin-bottom:16px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-box input,.form-box textarea{width:100%;padding:12px;border:1px solid #e0e0e0;font-family:'Montserrat',sans-serif;font-size:0.85rem;outline:none}
+.form-box input:focus,.form-box textarea:focus{border-color:#7b4b3a}
+.form-box textarea{resize:vertical;min-height:100px}
+.form-actions{display:flex;gap:8px;margin-top:12px}
+.news-list{display:flex;flex-direction:column;gap:12px}
+.news-card{background:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 6px rgba(0,0,0,0.03)}
+.news-card:hover{box-shadow:0 2px 12px rgba(0,0,0,0.06)}
+.news-card strong{display:block;font-family:'Cormorant Garamond',serif;font-size:1rem}
+.news-card span{font-size:0.7rem;color:#999}
+.news-card-actions{display:flex;gap:6px;flex-shrink:0}
+.toast{position:fixed;bottom:20px;right:20px;background:#7b4b3a;color:#fff;padding:12px 20px;font-size:0.85rem;opacity:0;transform:translateY(10px);transition:.3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+@media(max-width:600px){.form-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="login-box" id="loginBox">
+  <h1>ЗАВЯЗЬ</h1>
+  <p>Управление новостями</p>
+  <input type="password" id="password" placeholder="Пароль" onkeydown="if(event.key==='Enter')login()">
+  <button class="btn" onclick="login()" style="margin-top:8px">Войти</button>
+  <p id="loginErr" style="color:#c0392b;font-size:0.8rem;margin-top:8px;display:none">Неверный пароль</p>
+</div>
+
+<div class="app" id="app">
+  <div class="header">
+    <div><h1>ЗАВЯЗЬ CMS</h1><span>Новости сайта и ботов</span></div>
+    <button class="btn btn-outline btn-sm" onclick="logout()">Выйти</button>
+  </div>
+
+  <div class="form-box">
+    <h3 id="formTitle">Новая новость</h3>
+    <input type="hidden" id="editId">
+    <div class="form-row">
+      <input type="text" id="newsTitle" placeholder="Заголовок">
+      <input type="text" id="newsDate" placeholder="Дата (например: 20.06.2026)">
+    </div>
+    <textarea id="newsText" placeholder="Текст новости"></textarea>
+    <div class="form-actions">
+      <button class="btn" onclick="saveNews()">Опубликовать</button>
+      <button class="btn btn-outline btn-sm" onclick="cancelEdit()" id="cancelBtn" style="display:none">Отмена</button>
+    </div>
+  </div>
+
+  <h3 style="font-family:'Cormorant Garamond',serif;margin-bottom:12px">Опубликованные новости (<span id="newsCount">0</span>)</h3>
+  <div class="news-list" id="newsList"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "/api/cms";
+
+async function check() {
+  try { const r = await fetch(API + "/check"); const d = await r.json(); if (d.ok) showApp(); } catch(e) {}
+}
+async function login() {
+  const pw = document.getElementById("password").value;
+  try {
+    const r = await fetch(API + "/login", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ password: pw }) });
+    if (r.ok) { showApp(); } else { document.getElementById("loginErr").style.display = "block"; }
+  } catch(e) { document.getElementById("loginErr").style.display = "block"; }
+}
+async function logout() { await fetch(API + "/logout", { method: "POST" }); document.getElementById("app").style.display = "none"; document.getElementById("loginBox").style.display = "block"; document.getElementById("password").value = ""; }
+async function loadNews() {
+  try {
+    const r = await fetch(API + "/news"); const data = await r.json();
+    document.getElementById("newsCount").textContent = data.length;
+    document.getElementById("newsList").innerHTML = data.map(n =>
+      '<div class="news-card"><div><strong>' + n.title + '</strong><span>' + n.date + '</span></div><div class="news-card-actions"><button class="btn btn-outline btn-sm" onclick="editNews(' + n.id + ')">✎</button><button class="btn btn-del btn-sm" onclick="deleteNews(' + n.id + ')">✕</button></div></div>'
+    ).join("");
+  } catch(e) {}
+}
+async function saveNews() {
+  const title = document.getElementById("newsTitle").value.trim();
+  const text = document.getElementById("newsText").value.trim();
+  const date = document.getElementById("newsDate").value.trim();
+  const editId = document.getElementById("editId").value;
+  if (!title || !text) return toast("Заполните заголовок и текст");
+  try {
+    const body = { title, text, date };
+    const method = editId ? "PUT" : "POST";
+    const url = editId ? API + "/news/" + editId : API + "/news";
+    await fetch(url, { method, headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
+    cancelEdit(); loadNews(); toast(editId ? "Обновлено" : "Опубликовано");
+  } catch(e) { toast("Ошибка"); }
+}
+async function editNews(id) {
+  try {
+    const r = await fetch(API + "/news"); const data = await r.json();
+    const n = data.find(x => x.id === id);
+    if (n) {
+      document.getElementById("editId").value = n.id;
+      document.getElementById("newsTitle").value = n.title;
+      document.getElementById("newsText").value = n.text;
+      document.getElementById("newsDate").value = n.date || "";
+      document.getElementById("formTitle").textContent = "Редактировать новость";
+      document.getElementById("cancelBtn").style.display = "inline-block";
+    }
+  } catch(e) {}
+}
+function cancelEdit() {
+  document.getElementById("editId").value = "";
+  document.getElementById("newsTitle").value = "";
+  document.getElementById("newsText").value = "";
+  document.getElementById("newsDate").value = "";
+  document.getElementById("formTitle").textContent = "Новая новость";
+  document.getElementById("cancelBtn").style.display = "none";
+}
+async function deleteNews(id) {
+  if (!confirm("Удалить новость?")) return;
+  try { await fetch(API + "/news/" + id, { method: "DELETE" }); loadNews(); toast("Удалено"); } catch(e) { toast("Ошибка"); }
+}
+function showApp() {
+  document.getElementById("loginBox").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  document.getElementById("loginErr").style.display = "none";
+  loadNews();
+}
+function toast(msg) {
+  const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2000);
+}
+check();
+</script>
+</body>
+</html>
