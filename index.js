@@ -265,10 +265,7 @@ app.get("/api/public/news", (_, res) => {
 
 async function getNews() {
   const cms = readNews();
-  if (cms.length > 0) {
-    return cms.slice(0, 7).map(n => ({ date: n.date, title: n.title, text: (n.text||"").slice(0, 200), source: n.source || "ЗАВЯЗЬ" }));
-  }
-  return await fetchLiveNews();
+  return cms.slice(0, 7).map(n => ({ date: n.date, title: n.title, text: (n.text||"").slice(0, 200), source: n.source || "ЗАВЯЗЬ" }));
 }
 
 app.get("/api/encyclopedia", (_, res) => res.json(ENCYCLOPEDIA));
