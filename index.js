@@ -20,21 +20,13 @@ const openai = new OpenAI({ baseURL: BASE_URL, apiKey: API_KEY });
 const DESIGNER = "Ирина Кукушина";
 const PHONE = "+7 922 20 19 19 9";
 
-// ── News ─────────────────────────────────────────────────────────────────
-const RSSParser = require("rss-parser");
-const rssParser = new RSSParser({ timeout: 10000 });
-
-const RSS_SOURCES = [
-  { name: "ELLE Россия", url: "https://www.elle.ru/rss/", type: "ru" },
-  { name: "Vogue Россия", url: "https://www.vogue.ru/rss/", type: "ru" },
-  { name: "FashionUnited", url: "https://ru.fashionunited.com/rss", type: "ru" },
-];
-
-// Web scraping sources — Russian sites
+// Web scraping of Russian knitwear sources only
 const SCRAPE_SOURCES = [
-  { name: "Мода 24/7", url: "https://moda247.ru/news/", selector: "h2 a", type: "ru" },
-  { name: "InterModa", url: "https://www.intermoda.ru/", selector: "a.news-title, h2 a, .title a", type: "ru" },
-  { name: "РИА Мода", url: "https://ria.ru/fashion/", selector: ".list-item__title", type: "ru" },
+  { name: "Мода 24/7", url: "https://moda247.ru/news/" },
+  { name: "InterModa", url: "https://www.intermoda.ru/" },
+  { name: "РИА Мода", url: "https://ria.ru/fashion/" },
+  { name: "FashionNetwork", url: "https://ru.fashionnetwork.com/news/" },
+  { name: "ProFashion", url: "https://profashion.ru/news/" },
 ];
 
 const KNITWEAR_KEYWORDS = [
@@ -217,32 +209,30 @@ if (!fs.existsSync(INCOMING_FILE)) writeIncoming([]);
 async function fetchIncomingNews() {
   const existing = readIncoming();
   const existingLinks = new Set(existing.map(n => n.link));
-  for (const src of RSS_SOURCES) {
-    try {
-      const feed = await rssParser.parseURL(src.url);
-      for (const item of (feed.items || [])) {
-        const title = item.title || "";
-        const text = (item.contentSnippet || item.content || "").replace(/<[^>]*>/g, "").slice(0, 300);
-        const link = item.link || "";
-        if (!link || existingLinks.has(link)) continue;
-        const combined = (title + " " + text).toLowerCase();
-        if (KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) {
-          existing.push({ id: Date.now() + Math.random(), title, text, link, source: src.name, date: item.pubDate ? new Date(item.pubDate).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "", status: "incoming", fetchedAt: new Date().toISOString() });
-          existingLinks.add(link);
-        }
-      }
-    } catch(e) {}
-  }
   
-  // Web scraping Russian sites
   for (const src of SCRAPE_SOURCES) {
     try {
-      const scraped = await scrapeSite(src);
-      for (const a of scraped) {
+      const articles = await scrapeSite(src);
+      for (const a of articles) {
         if (!a.link || existingLinks.has(a.link)) continue;
         const combined = (a.title + " " + a.text).toLowerCase();
-        if (KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) {
-          existing.push({ id: Date.now() + Math.random(), title: a.title, text: a.text.slice(0, 300), link: a.link, source: a.source, date: "", status: "incoming", fetchedAt: new Date().toISOString() });
+        if (!KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) continue;
+        
+        // AI scoring + analysis
+        let score = 0, aiAnalysis = "";
+        try {
+          const resp = await openai.chat.completions.create({
+            model: "deepseek/deepseek-chat", max_tokens: 300, temperature: 0.3,
+            messages: [{ role: "system", content: "Оцени статью 0-10: насколько она о трикотаже/вязании. JSON: {\"score\":число,\"analysis\":\"журналистский анализ на русском до 100 слов: узоры, пряжа, техники, тренды\"}. 8+ только если напрямую о трикотаже." }, { role: "user", content: "Заголовок: " + a.title + "\nТекст: " + a.text.slice(0, 500) }]
+          });
+          const raw = resp.choices[0]?.message?.content || "{}";
+          const json = JSON.parse((raw.match(/\{[\s\S]*\}/) || ["{}"])[0]);
+          score = parseInt(json.score) || 0;
+          aiAnalysis = (json.analysis || "").slice(0, 500);
+        } catch(e) {}
+
+        if (score >= 8) {
+          existing.push({ id: Date.now() + Math.random(), title: a.title, text: a.text.slice(0, 500), link: a.link, source: a.source, date: "", status: "incoming", score, aiAnalysis, fetchedAt: new Date().toISOString() });
           existingLinks.add(a.link);
         }
       }
