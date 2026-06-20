@@ -55,6 +55,14 @@ body{font-family:'Montserrat',sans-serif;background:#f5f0eb;min-height:100vh}
     <button class="btn btn-outline btn-sm" onclick="logout()">Выйти</button>
   </div>
 
+  <div class="form-box" id="incomingBox" style="background:#fffbf0;border:1px solid #e8d5b0;margin-bottom:24px">
+    <h3 style="display:flex;justify-content:space-between;align-items:center">
+      📥 Входящие из интернета <span id="incomingCount" style="font-size:0.8rem;color:#999"></span>
+      <button class="btn btn-sm" onclick="fetchIncoming()" id="fetchBtn" style="background:#c9a063">Загрузить из RSS</button>
+    </h3>
+    <div id="incomingList" style="max-height:400px;overflow-y:auto;font-size:0.85rem"><p style="color:#999">Нажмите «Загрузить из RSS»</p></div>
+  </div>
+
   <div class="form-box">
     <h3 id="formTitle">Новая новость</h3>
     <input type="hidden" id="editId">
@@ -134,6 +142,37 @@ function cancelEdit() {
   document.getElementById("formTitle").textContent = "Новая новость";
   document.getElementById("cancelBtn").style.display = "none";
 }
+async function fetchIncoming() {
+  const btn = document.getElementById("fetchBtn"); btn.textContent = "Загрузка..."; btn.disabled = true;
+  try {
+    const r = await fetch(API + "/incoming/fetch", { method: "POST" });
+    const d = await r.json();
+    btn.textContent = "Загрузить из RSS"; btn.disabled = false;
+    loadIncoming(); toast("Загружено: " + d.count + " новых");
+  } catch(e) { btn.textContent = "Загрузить из RSS"; btn.disabled = false; toast("Ошибка загрузки"); }
+}
+
+async function loadIncoming() {
+  try {
+    const r = await fetch(API + "/incoming"); const data = await r.json();
+    document.getElementById("incomingCount").textContent = data.length + " шт.";
+    if (data.length === 0) { document.getElementById("incomingList").innerHTML = '<p style="color:#999">Новых входящих нет</p>'; return; }
+    document.getElementById("incomingList").innerHTML = data.map(n =>
+      '<div style="border-bottom:1px solid #e8d5b0;padding:12px 0"><strong>' + n.title + '</strong><br><span style="color:#999;font-size:0.75rem">' + n.source + ' · ' + n.date + '</span><p style="margin:6px 0;font-size:0.8rem;color:#666">' + n.text.slice(0,200) + '</p><div style="display:flex;gap:6px"><button class="btn btn-sm" onclick=\'publishIncoming(' + n.id + ', ' + JSON.stringify(n.title) + ', ' + JSON.stringify(n.text) + ', ' + JSON.stringify(n.source || "") + ')\'>✅ Опубликовать</button><button class="btn btn-del btn-sm" onclick="deleteIncoming(' + n.id + ')">✕</button></div></div>'
+    ).join("");
+  } catch(e) {}
+}
+
+async function publishIncoming(id, title, text, source) {
+  try {
+    const r = await fetch(API + "/incoming/publish", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ id, title, text: text.slice(0,300), source }) });
+    if (r.ok) { loadIncoming(); loadNews(); toast("Опубликовано"); }
+  } catch(e) { toast("Ошибка"); }
+}
+
+async function deleteIncoming(id) {
+  try { await fetch(API + "/incoming/" + id, { method: "DELETE" }); loadIncoming(); } catch(e) {}
+}
 async function deleteNews(id) {
   if (!confirm("Удалить новость?")) return;
   try { await fetch(API + "/news/" + id, { method: "DELETE" }); loadNews(); toast("Удалено"); } catch(e) { toast("Ошибка"); }
@@ -143,6 +182,7 @@ function showApp() {
   document.getElementById("app").style.display = "block";
   document.getElementById("loginErr").style.display = "none";
   loadNews();
+  loadIncoming();
 }
 function toast(msg) {
   const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show");

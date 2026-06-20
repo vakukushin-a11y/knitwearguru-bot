@@ -156,6 +156,65 @@ app.delete("/api/cms/news/:id", requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// Incoming news from internet — auto-fetched, ready to publish
+const INCOMING_FILE = __dirname + "/incoming.json";
+function readIncoming() { try { return JSON.parse(fs.readFileSync(INCOMING_FILE, "utf8")); } catch { return []; } }
+function writeIncoming(data) { fs.writeFileSync(INCOMING_FILE, JSON.stringify(data, null, 2)); }
+if (!fs.existsSync(INCOMING_FILE)) writeIncoming([]);
+
+async function fetchIncomingNews() {
+  const existing = readIncoming();
+  const existingLinks = new Set(existing.map(n => n.link));
+  for (const src of RSS_SOURCES) {
+    try {
+      const feed = await rssParser.parseURL(src.url);
+      for (const item of (feed.items || [])) {
+        const title = item.title || "";
+        const text = (item.contentSnippet || item.content || "").replace(/<[^>]*>/g, "").slice(0, 300);
+        const link = item.link || "";
+        if (!link || existingLinks.has(link)) continue;
+        const combined = (title + " " + text).toLowerCase();
+        if (KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) {
+          existing.push({ id: Date.now() + Math.random(), title, text, link, source: src.name, date: item.pubDate ? new Date(item.pubDate).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "", status: "incoming", fetchedAt: new Date().toISOString() });
+          existingLinks.add(link);
+        }
+      }
+    } catch(e) {}
+  }
+  writeIncoming(existing);
+  return existing.filter(n => n.status === "incoming");
+}
+
+app.post("/api/cms/incoming/fetch", requireAdmin, async (_, res) => {
+  const items = await fetchIncomingNews();
+  res.json({ ok: true, count: items.length });
+});
+
+app.get("/api/cms/incoming", requireAdmin, (_, res) => {
+  res.json(readIncoming().filter(n => n.status === "incoming"));
+});
+
+app.post("/api/cms/incoming/publish", requireAdmin, (req, res) => {
+  const { id, title, text, source } = req.body;
+  const incoming = readIncoming();
+  const idx = incoming.findIndex(n => n.id == id);
+  if (idx === -1) return res.status(404).json({ error: "Не найдено" });
+  const item = incoming[idx];
+  incoming[idx].status = "published";
+  writeIncoming(incoming);
+  const news = readNews();
+  news.unshift({ id: Date.now(), title: title || item.title, text: text || item.text, date: new Date().toLocaleDateString("ru-RU"), source: source || item.source, createdAt: new Date().toISOString() });
+  writeNews(news);
+  res.json({ ok: true });
+});
+
+app.delete("/api/cms/incoming/:id", requireAdmin, (req, res) => {
+  const incoming = readIncoming();
+  const filtered = incoming.filter(n => n.id != req.params.id);
+  writeIncoming(filtered);
+  res.json({ ok: true });
+});
+
 // Public news API — for site and bots
 app.get("/api/public/news", (_, res) => {
   const news = readNews();
