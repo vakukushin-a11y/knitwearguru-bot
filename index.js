@@ -27,6 +27,11 @@ const SCRAPE_SOURCES = [
   { name: "РИА Мода", url: "https://ria.ru/fashion/" },
   { name: "FashionNetwork", url: "https://ru.fashionnetwork.com/news/" },
   { name: "ProFashion", url: "https://profashion.ru/news/" },
+  { name: "FashionUnited", url: "https://fashionunited.ru/news" },
+  { name: "Buro 24/7", url: "https://www.buro247.ru/news/fashion" },
+  { name: "The Blueprint", url: "https://theblueprint.ru/fashion" },
+  { name: "Sobaka.ru", url: "https://www.sobaka.ru/fashion" },
+  { name: "Woman.ru Мода", url: "https://www.woman.ru/fashion/" },
 ];
 
 const KNITWEAR_KEYWORDS = [
@@ -46,31 +51,36 @@ function isKnitwearArticle(title, text) {
 async function scrapeSite(source) {
   try {
     const resp = await fetch(source.url, {
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
-      signal: AbortSignal.timeout(8000)
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
+      signal: AbortSignal.timeout(10000)
     });
     const html = await resp.text();
     const articles = [];
     
-    // Extract title + link
-    const linkRegex = /<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gi;
+    // Method 1: Find all links with title text
+    const linkRegex = /<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
     let match;
     while ((match = linkRegex.exec(html)) !== null) {
       const href = match[1];
-      const title = match[2].replace(/<[^>]*>/g, "").trim();
-      if (title.length > 20 && title.length < 200) {
-        articles.push({ title, link: href.startsWith("http") ? href : new URL(href, source.url).href });
+      const title = match[2].replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+      if (title.length > 25 && title.length < 300 && !href.match(/\.(jpg|png|gif|css|js|ico)/)) {
+        articles.push({ title, link: href, text: title });
       }
-      if (articles.length > 30) break;
+      if (articles.length > 40) break;
     }
     
-    // Also try og:description or meta description for text
-    const descRegex = /<meta[^>]+name="description"[^>]+content="([^"]+)"/i;
-    const descMatch = descRegex.exec(html);
+    // Method 2: Look for article/news card titles
+    const cardRegex = /<(h[2-4]|div class="[^"]*title[^"]*"|span class="[^"]*title[^"]*")[^>]*>([\s\S]*?)<\/(h[2-4]|div|span)>/gi;
+    while ((match = cardRegex.exec(html)) !== null) {
+      const title = match[2].replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+      if (title.length > 25 && title.length < 200) {
+        articles.push({ title, link: source.url, text: title });
+      }
+      if (articles.length > 50) break;
+    }
     
-    return articles.slice(0, 15).map(a => ({
+    return articles.slice(0, 30).map(a => ({
       ...a,
-      text: descMatch ? descMatch[1] : a.title,
       source: source.name,
     }));
   } catch(e) { return []; }
