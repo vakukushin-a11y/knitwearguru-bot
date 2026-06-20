@@ -45,7 +45,7 @@ const KNITWEAR_KEYWORDS = [
 function isKnitwearArticle(title, text) {
   const combined = (title + " " + text).toLowerCase();
   const matches = KNITWEAR_KEYWORDS.filter(kw => combined.includes(kw));
-  return matches.length >= 2;
+  return matches.length >= 7;
 }
 
 async function scrapeSite(source) {
