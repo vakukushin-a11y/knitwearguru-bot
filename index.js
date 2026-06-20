@@ -216,9 +216,11 @@ async function fetchIncomingNews() {
       for (const a of articles) {
         if (!a.link || existingLinks.has(a.link)) continue;
         const combined = (a.title + " " + a.text).toLowerCase();
-        if (!isKnitwearArticle(a.title, a.text)) continue;
+        const matchCount = KNITWEAR_KEYWORDS.filter(kw => combined.includes(kw)).length;
+        if (matchCount < 7) continue;
+        console.log("Match:", matchCount, "–", a.title.slice(0, 60));
         
-        existing.push({ id: Date.now() + Math.random(), title: a.title, text: a.text.slice(0, 500), link: a.link, source: a.source, date: "", status: "incoming", fetchedAt: new Date().toISOString() });
+        existing.push({ id: Date.now() + Math.random(), title: a.title, text: a.text.slice(0, 500), link: a.link, source: a.source, date: "", status: "incoming", matchCount, fetchedAt: new Date().toISOString() });
         existingLinks.add(a.link);
       }
     } catch(e) {}
