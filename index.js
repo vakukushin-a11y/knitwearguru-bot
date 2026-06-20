@@ -30,15 +30,57 @@ const RSS_SOURCES = [
   { name: "FashionUnited", url: "https://ru.fashionunited.com/rss", type: "ru" },
 ];
 
+// Web scraping sources — Russian sites
+const SCRAPE_SOURCES = [
+  { name: "Мода 24/7", url: "https://moda247.ru/news/", selector: "h2 a", type: "ru" },
+  { name: "InterModa", url: "https://www.intermoda.ru/", selector: "a.news-title, h2 a, .title a", type: "ru" },
+  { name: "РИА Мода", url: "https://ria.ru/fashion/", selector: ".list-item__title", type: "ru" },
+];
+
 const KNITWEAR_KEYWORDS = [
   "трикотаж", "вязан", "пряжа", "свитер", "кардиган", "джемпер", "пуловер",
   "шерсть", "вязк", "спицы", "меринос", "кашемир", "хлопок", "акрил", "вискоза",
-  "палантин", "снуд", "плед", "платье", "туника", "шапк", "шарф",
+  "палантин", "снуд", "плед", "платье", "туника", "шапк", "шарф", "мода",
+  "коллекция", "показ", "дизайнер", "бренд", "ателье", "производств", "фабрик",
   "knit", "knitwear", "yarn", "wool", "sweater", "cardigan", "cashmere",
 ];
 
+async function scrapeSite(source) {
+  try {
+    const resp = await fetch(source.url, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+      signal: AbortSignal.timeout(8000)
+    });
+    const html = await resp.text();
+    const articles = [];
+    
+    // Extract title + link
+    const linkRegex = /<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gi;
+    let match;
+    while ((match = linkRegex.exec(html)) !== null) {
+      const href = match[1];
+      const title = match[2].replace(/<[^>]*>/g, "").trim();
+      if (title.length > 20 && title.length < 200) {
+        articles.push({ title, link: href.startsWith("http") ? href : new URL(href, source.url).href });
+      }
+      if (articles.length > 30) break;
+    }
+    
+    // Also try og:description or meta description for text
+    const descRegex = /<meta[^>]+name="description"[^>]+content="([^"]+)"/i;
+    const descMatch = descRegex.exec(html);
+    
+    return articles.slice(0, 15).map(a => ({
+      ...a,
+      text: descMatch ? descMatch[1] : a.title,
+      source: source.name,
+    }));
+  } catch(e) { return []; }
+}
+
 async function fetchLiveNews() {
   const allArticles = [];
+  // Try RSS first
   for (const src of RSS_SOURCES) {
     try {
       const feed = await rssParser.parseURL(src.url);
@@ -49,13 +91,23 @@ async function fetchLiveNews() {
         if (KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) {
           allArticles.push({
             date: item.pubDate ? new Date(item.pubDate).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "",
-            title: title,
-            text: text.slice(0, 200),
-            source: src.name,
+            title: title, text: text.slice(0, 200), source: src.name,
           });
         }
       }
-    } catch (e) { /* skip failed source */ }
+    } catch (e) { /* skip failed RSS */ }
+  }
+  // Then scrape sites
+  for (const src of SCRAPE_SOURCES) {
+    if (allArticles.length >= 7) break;
+    const scraped = await scrapeSite(src);
+    for (const a of scraped) {
+      if (allArticles.length >= 7) break;
+      const combined = (a.title + " " + a.text).toLowerCase();
+      if (KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) {
+        allArticles.push({ date: "", title: a.title, text: a.text.slice(0, 200), source: a.source });
+      }
+    }
   }
   return allArticles.slice(0, 7);
 }
@@ -181,6 +233,22 @@ async function fetchIncomingNews() {
       }
     } catch(e) {}
   }
+  
+  // Web scraping Russian sites
+  for (const src of SCRAPE_SOURCES) {
+    try {
+      const scraped = await scrapeSite(src);
+      for (const a of scraped) {
+        if (!a.link || existingLinks.has(a.link)) continue;
+        const combined = (a.title + " " + a.text).toLowerCase();
+        if (KNITWEAR_KEYWORDS.some(kw => combined.includes(kw))) {
+          existing.push({ id: Date.now() + Math.random(), title: a.title, text: a.text.slice(0, 300), link: a.link, source: a.source, date: "", status: "incoming", fetchedAt: new Date().toISOString() });
+          existingLinks.add(a.link);
+        }
+      }
+    } catch(e) {}
+  }
+  
   writeIncoming(existing);
   return existing.filter(n => n.status === "incoming");
 }
