@@ -9,14 +9,15 @@ app.use("/img", express.static(__dirname + "/img"));
 app.use("/admin", express.static(__dirname + "/admin"));
 
 const PORT = process.env.PORT || 3000;
-const BASE_URL = process.env.OPENAI_BASE_URL || "https://routerai.ru/api/v1";
+const BASE_URL = process.env.OPENAI_BASE_URL || "http://127.0.0.1:11434/v1";
 const API_KEY = process.env.OPENAI_API_KEY || "";
+const AI_MODEL = process.env.AI_MODEL || "qwen2.5:7b";
 const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const MAX_TOKEN = process.env.MAX_BOT_TOKEN || "";
 const HOST = process.env.HOST || `http://localhost:${PORT}`;
 const fs = require("fs");
 
-const openai = API_KEY && API_KEY !== 'your-api-key-here' ? new OpenAI({ baseURL: BASE_URL, apiKey: API_KEY }) : null;
+const openai = API_KEY !== 'your-api-key-here' ? new OpenAI({ baseURL: BASE_URL, apiKey: API_KEY || "ollama" }) : null;
 const DESIGNER = "Ирина Кукушина";
 const PHONE = "+7 922 20 19 19 9";
 
@@ -302,7 +303,7 @@ async function askAI(question, isEncyclopedia = false) {
       ? "Ты — энциклопедия трикотажа. Отвечай на русском: пряжа, вязание, изделия, уход. Стиль: дружелюбный, экспертный, с эмодзи."
       : "Ты — консультант ателье «ЗАВЯЗЬ». Отвечай кратко, по делу. Ателье вяжет на заказ. Телефон дизайнера Ирины: +7 922 20 19 19 9. Сайт: zavyz.ru";
     const resp = await openai.chat.completions.create({
-      model: "deepseek/deepseek-chat",
+      model: AI_MODEL,
       messages: [{ role: "system", content: systemPrompt }, { role: "user", content: question }],
       max_tokens: isEncyclopedia ? 600 : 400,
     });
