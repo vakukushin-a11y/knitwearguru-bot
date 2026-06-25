@@ -16,7 +16,7 @@ const MAX_TOKEN = process.env.MAX_BOT_TOKEN || "";
 const HOST = process.env.HOST || `http://localhost:${PORT}`;
 const fs = require("fs");
 
-const openai = new OpenAI({ baseURL: BASE_URL, apiKey: API_KEY });
+const openai = API_KEY && API_KEY !== 'your-api-key-here' ? new OpenAI({ baseURL: BASE_URL, apiKey: API_KEY }) : null;
 const DESIGNER = "Ирина Кукушина";
 const PHONE = "+7 922 20 19 19 9";
 
@@ -295,6 +295,9 @@ app.get("/api/encyclopedia", (_, res) => res.json(ENCYCLOPEDIA));
 // ── Helpers ───────────────────────────────────────────────────────────────
 async function askAI(question, isEncyclopedia = false) {
   try {
+    if (!openai) {
+      return isEncyclopedia ? (findEncyclopediaAnswer(question) || "Задайте вопрос о трикотаже — джемпер, свитер, кашемир, шерсть...") : "Бот работает в офлайн-режиме. API-ключ не настроен.";
+    }
     const systemPrompt = isEncyclopedia
       ? "Ты — энциклопедия трикотажа. Отвечай на русском: пряжа, вязание, изделия, уход. Стиль: дружелюбный, экспертный, с эмодзи."
       : "Ты — консультант ателье «ЗАВЯЗЬ». Отвечай кратко, по делу. Ателье вяжет на заказ. Телефон дизайнера Ирины: +7 922 20 19 19 9. Сайт: zavyz.ru";
