@@ -424,13 +424,9 @@ async function maxBot() {
       if (!data.updates) { console.log("MAX poll: no updates field, response:", JSON.stringify(data).slice(0, 200)); }
       if (data.marker) marker = data.marker;
       for (const u of data.updates || []) {
-        const fs = require("fs");
-        fs.writeFileSync("E:\\PRODUCTION-NODE\\data\\logs\\max-debug.json", JSON.stringify(u, null, 2));
-        console.log("MAX update type:", u.update_type);
         const cid = getChatId(u);
         if (!cid) { console.log("MAX: no chat_id in update", JSON.stringify(u).slice(0,200)); continue; }
         if (u.update_type === "message_callback") { console.log("MAX callback:", JSON.stringify(u.callback).slice(0,200)); }
-        console.log("MAX update:", u.update_type, "chatId:", cid);
         if (u.update_type === "bot_started" && u.user) {
           await mxSend(cid, "Добро пожаловать в ателье «ЗАВЯЗЬ»! 🧶\n\nЯ помогу с выбором трикотажа, расскажу о пряже. Что интересует?", menu());
         } else if (u.update_type === "message_created" && u.message?.body?.text) {
