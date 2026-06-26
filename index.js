@@ -421,7 +421,9 @@ async function maxBot() {
           await mxSend(u.user.user_id, "Добро пожаловать в ателье «ЗАВЯЗЬ»! 🧶\n\nЯ помогу с выбором трикотажа, расскажу о пряже. Что интересует?", menu());
         } else if (u.update_type === "message_created" && u.message?.body?.text) {
           const uid = u.message.sender.user_id; const text = u.message.body.text.trim();
-          if (encSessions.has(uid)) { const a = await askAI(text, true); await mxSend(uid, a, encMenu()); }
+          if (text === "/start") {
+            await mxSend(uid, "Добро пожаловать в ателье «ЗАВЯЗЬ»! 🧶\n\nЯ помогу с выбором трикотажа, расскажу о пряже. Что интересует?", menu());
+          } else if (encSessions.has(uid)) { const a = await askAI(text, true); await mxSend(uid, a, encMenu()); }
           else { const a = await askAI(text); await mxSend(uid, a, menu()); }
         } else if (u.update_type === "message_callback" && u.callback) {
           const uid = u.callback.user.user_id; const p = u.callback.payload || u.callback.data || "";
