@@ -393,7 +393,7 @@ async function maxBot() {
     } catch (e) { console.log("MAX send error:", e.message); }
   }
 
-  function menu() { const rows = [[{ type: "callback", text: "📋 Заказать", payload: "order" }, { type: "callback", text: "🧶 Энциклопедия", payload: "encyclopedia" }], [{ text: "📞 Позвонить", payload: "contact" }]]; return { type: "inline_keyboard", payload: { buttons: rows } }; }
+  function menu() { const rows = [[{ type: "callback", text: "📋 Заказать", payload: "order" }, { type: "callback", text: "🧶 Энциклопедия", payload: "encyclopedia" }], [{ type: "callback", text: "📞 Позвонить", payload: "contact" }]]; return { type: "inline_keyboard", payload: { buttons: rows } }; }
   function encMenu() { return { type: "inline_keyboard", payload: { buttons: [[{ type: "callback", text: "↩️ Меню", payload: "menu" }, { type: "callback", text: "🧶 Спросить ещё", payload: "encyclopedia" }]] } }; }
   function catMenu() { const rows = []; for (let i = 0; i < PRODUCTS.length; i += 2) rows.push(PRODUCTS.slice(i, i + 2).map(p => ({ type: "callback", text: p.name, payload: "cat:" + p.name }))); rows.push([{ type: "callback", text: "↩️ Меню", payload: "menu" }]); return { type: "inline_keyboard", payload: { buttons: rows } }; }
 
