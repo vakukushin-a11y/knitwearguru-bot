@@ -383,10 +383,14 @@ async function maxBot() {
   let marker = null;
 
   async function mxSend(chatId, text, keyboard) {
-    const url = new URL(`${API}/messages`); url.searchParams.set("chat_id", chatId);
-    const body = { text };
-    if (keyboard) body.attachments = [keyboard];
-    await fetch(url.toString(), { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch((e) => { console.log("mxSend error:", e.message); });
+    try {
+      const url = new URL(`${API}/messages`); url.searchParams.set("chat_id", chatId);
+      const body = { text };
+      if (keyboard) body.attachments = [keyboard];
+      const resp = await fetch(url.toString(), { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await resp.text();
+      if (!resp.ok) console.log("MAX send FAIL:", resp.status, "chatId:", chatId, "resp:", data.slice(0, 200));
+    } catch (e) { console.log("MAX send error:", e.message); }
   }
 
   function menu() { const rows = [[{ type: "callback", text: "📋 Заказать", payload: "order" }, { type: "callback", text: "🧶 Энциклопедия", payload: "encyclopedia" }], [{ text: "📞 Позвонить", payload: "contact" }]]; return { type: "inline_keyboard", payload: { buttons: rows } }; }
@@ -423,6 +427,7 @@ async function maxBot() {
         const cid = getChatId(u);
         if (!cid) { console.log("MAX: no chat_id in update", JSON.stringify(u).slice(0,200)); continue; }
         if (u.update_type === "message_callback") { console.log("MAX callback:", JSON.stringify(u.callback).slice(0,200)); }
+        console.log("MAX update:", u.update_type, "chatId:", cid);
         if (u.update_type === "bot_started" && u.user) {
           await mxSend(cid, "Добро пожаловать в ателье «ЗАВЯЗЬ»! 🧶\n\nЯ помогу с выбором трикотажа, расскажу о пряже. Что интересует?", menu());
         } else if (u.update_type === "message_created" && u.message?.body?.text) {
