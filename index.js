@@ -382,11 +382,11 @@ async function maxBot() {
   const API = "https://platform-api.max.ru";
   let marker = null;
 
-  async function mxSend(userId, text, keyboard) {
-    const url = new URL(`${API}/messages`); url.searchParams.set("user_id", userId);
+  async function mxSend(chatId, text, keyboard) {
+    const url = new URL(`${API}/messages`); url.searchParams.set("chat_id", chatId);
     const body = { text };
     if (keyboard) body.attachments = [keyboard];
-    await fetch(url.toString(), { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
+    await fetch(url.toString(), { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch((e) => { console.log("mxSend error:", e.message); });
   }
 
   function menu() { const rows = [[{ type: "callback", text: "📋 Заказать", payload: "order" }, { type: "callback", text: "🧶 Энциклопедия", payload: "encyclopedia" }], [{ text: "📞 Позвонить", payload: "contact" }]]; return { type: "inline_keyboard", payload: { buttons: rows } }; }
@@ -394,9 +394,13 @@ async function maxBot() {
   function catMenu() { const rows = []; for (let i = 0; i < PRODUCTS.length; i += 2) rows.push(PRODUCTS.slice(i, i + 2).map(p => ({ type: "callback", text: p.name, payload: "cat:" + p.name }))); rows.push([{ type: "callback", text: "↩️ Меню", payload: "menu" }]); return { type: "inline_keyboard", payload: { buttons: rows } }; }
 
   const encSessions = new Set();
-  async function mxSendPhoto(userId, url) {
-    const u = new URL(`${API}/messages`); u.searchParams.set("user_id", userId);
-    await fetch(u.toString(), { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify({ attachments: [{ type: "image", payload: { url } }] }) }).catch(() => {});
+  async function mxSendPhoto(chatId, url) {
+    const u = new URL(`${API}/messages`); u.searchParams.set("chat_id", chatId);
+    await fetch(u.toString(), { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify({ attachments: [{ type: "image", payload: { url } }] }) }).catch((e) => { console.log("mxSendPhoto error:", e.message); });
+  }
+
+  function getChatId(u) {
+    return u.chat_id || u.message?.chat?.id || u.message?.recipient?.chat_id || u.user?.user_id || u.message?.sender?.user_id || "";
   }
 
   // Verify connection first
@@ -416,22 +420,24 @@ async function maxBot() {
       if (!data.updates) { console.log("MAX poll: no updates field, response:", JSON.stringify(data).slice(0, 200)); }
       if (data.marker) marker = data.marker;
       for (const u of data.updates || []) {
-        if (u.update_type === "message_callback") { console.log("MAX callback FULL:", JSON.stringify(u.callback)); }
+        const cid = getChatId(u);
+        if (!cid) { console.log("MAX: no chat_id in update", JSON.stringify(u).slice(0,200)); continue; }
+        if (u.update_type === "message_callback") { console.log("MAX callback:", JSON.stringify(u.callback).slice(0,200)); }
         if (u.update_type === "bot_started" && u.user) {
-          await mxSend(u.user.user_id, "Добро пожаловать в ателье «ЗАВЯЗЬ»! 🧶\n\nЯ помогу с выбором трикотажа, расскажу о пряже. Что интересует?", menu());
+          await mxSend(cid, "Добро пожаловать в ателье «ЗАВЯЗЬ»! 🧶\n\nЯ помогу с выбором трикотажа, расскажу о пряже. Что интересует?", menu());
         } else if (u.update_type === "message_created" && u.message?.body?.text) {
-          const uid = u.message.sender.user_id; const text = u.message.body.text.trim();
+          const text = u.message.body.text.trim();
           if (text === "/start") {
-            await mxSend(uid, "Добро пожаловать в ателье «ЗАВЯЗЬ»! 🧶\n\nЯ помогу с выбором трикотажа, расскажу о пряже. Что интересует?", menu());
-          } else if (encSessions.has(uid)) { const a = await askAI(text, true); await mxSend(uid, a, encMenu()); }
-          else { const a = await askAI(text); await mxSend(uid, a, menu()); }
+            await mxSend(cid, "Добро пожаловать в ателье «ЗАВЯЗЬ»! 🧶\n\nЯ помогу с выбором трикотажа, расскажу о пряже. Что интересует?", menu());
+          } else if (encSessions.has(cid)) { const a = await askAI(text, true); await mxSend(cid, a, encMenu()); }
+          else { const a = await askAI(text); await mxSend(cid, a, menu()); }
         } else if (u.update_type === "message_callback" && u.callback) {
-          const uid = u.callback.user.user_id; const p = u.callback.payload || u.callback.data || "";
-          if (p === "contact") { encSessions.delete(uid); await mxSend(uid, DESIGNER + " — дизайнер ателье ЗАВЯЗЬ\n\n📞 " + PHONE, menu()); }
-          else if (p === "order") { encSessions.delete(uid); await mxSend(uid, "Выберите изделие 👇", catMenu()); }
-          else if (p.startsWith("cat:")) { const name = p.slice(4); const prod = PRODUCTS.find(x => x.name === name); if (prod) { await mxSend(uid, `${prod.singular || prod.name}\n${prod.price}\n\n📞 Для заказа: ${PHONE}`); const cdnUrl = "https://cdn.jsdelivr.net/gh/vakukushin-a11y/zavyaz-site@main/" + encodeURIComponent(prod.img); await mxSendPhoto(uid, cdnUrl); await mxSend(uid, "Что ещё интересует?", menu()); } }
-          else if (p === "menu" || p === "menu:main") { encSessions.delete(uid); await mxSend(uid, "Главное меню:", menu()); }
-          else if (p === "encyclopedia") { encSessions.add(uid); await mxSend(uid, encIntro(), encMenu()); }
+          const p = u.callback.payload || u.callback.data || "";
+          if (p === "contact") { encSessions.delete(cid); await mxSend(cid, DESIGNER + " — дизайнер ателье ЗАВЯЗЬ\n\n📞 " + PHONE, menu()); }
+          else if (p === "order") { encSessions.delete(cid); await mxSend(cid, "Выберите изделие 👇", catMenu()); }
+          else if (p.startsWith("cat:")) { const name = p.slice(4); const prod = PRODUCTS.find(x => x.name === name); if (prod) { await mxSend(cid, `${prod.singular || prod.name}\n${prod.price}\n\n📞 Для заказа: ${PHONE}`); const cdnUrl = "https://cdn.jsdelivr.net/gh/vakukushin-a11y/zavyaz-site@main/" + encodeURIComponent(prod.img); await mxSendPhoto(cid, cdnUrl); await mxSend(cid, "Что ещё интересует?", menu()); } }
+          else if (p === "menu" || p === "menu:main") { encSessions.delete(cid); await mxSend(cid, "Главное меню:", menu()); }
+          else if (p === "encyclopedia") { encSessions.add(cid); await mxSend(cid, encIntro(), encMenu()); }
         }
       }
     } catch (e) { await new Promise(r => setTimeout(r, 5000)); }
