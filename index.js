@@ -408,7 +408,7 @@ async function maxBot() {
   }
 
   function getChatId(u) {
-    return u.chat_id || u.message?.chat?.id || u.message?.recipient?.chat_id || u.user?.user_id || u.message?.sender?.user_id || "";
+    return u.chat_id || u.message?.recipient?.chat_id || u.callback?.message?.recipient?.chat_id || u.message?.chat?.id || u.user?.user_id || u.callback?.user?.user_id || u.message?.sender?.user_id || "";
   }
 
   // Verify connection first
