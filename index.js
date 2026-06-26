@@ -399,8 +399,12 @@ async function maxBot() {
 
   const encSessions = new Set();
   async function mxSendPhoto(chatId, url) {
-    const u = new URL(`${API}/messages`); u.searchParams.set("chat_id", chatId);
-    await fetch(u.toString(), { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify({ attachments: [{ type: "image", payload: { url } }] }) }).catch((e) => { console.log("mxSendPhoto error:", e.message); });
+    try {
+      const u = new URL(`${API}/messages`); u.searchParams.set("chat_id", chatId);
+      const resp = await fetch(u.toString(), { method: "POST", headers: { Authorization: MAX_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify({ attachments: [{ type: "image", payload: { url } }] }) });
+      const data = await resp.text();
+      if (!resp.ok) console.log("MAX photo FAIL:", resp.status, "url:", url.slice(0, 80), "resp:", data.slice(0, 200));
+    } catch (e) { console.log("MAX photo error:", e.message); }
   }
 
   function getChatId(u) {
